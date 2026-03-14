@@ -7,6 +7,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
+@org.springframework.context.annotation.Profile("dev")
 class ContextEnrichmentStub implements ContextEnrichmentClient {
     @Override
     public Map<String, Object> enrichAccidentContext(String caseId, Location location) {
