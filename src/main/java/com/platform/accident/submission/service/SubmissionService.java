@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -100,11 +101,49 @@ public class SubmissionService {
     }
 
     // Triggered after primary DB save
+//    private void triggerBackgroundProcesses(String caseId, Location loc) {
+//        CompletableFuture.runAsync(() -> {
+//            try {
+//                // Calls stubs for Context & AI
+//                contextClient.enrichAccidentContext(caseId, loc);
+//                intelligenceClient.processAiAnalysis(caseId);
+//            } catch (Exception e) {
+//                log.error("Background processing failed for case: {}", caseId, e);
+//            }
+//        });
+//    }
     private void triggerBackgroundProcesses(String caseId, Location loc) {
         CompletableFuture.runAsync(() -> {
             try {
-                // Calls stubs for Context & AI
-                contextClient.enrichAccidentContext(caseId, loc);
+                log.info("Starting background enrichment for case: {}", caseId);
+
+                // 1. Παίρνουμε τα δεδομένα από τον Orchestrator
+                Map<String, Object> result = contextClient.enrichAccidentContext(caseId, loc);
+
+                // 2. Βρίσκουμε το ατύχημα στη βάση
+                repository.findByCaseId(caseId).ifPresent(report -> {
+
+                    // 3. Μετατρέπουμε το Map στο Record EnrichedContext
+                    var weather = (com.platform.accident.enrichment.domain.WeatherMetrics) result.get("weather");
+                    var road = (com.platform.accident.enrichment.domain.RoadGeometry) result.get("road");
+
+                    EnrichedContext context = EnrichedContext.builder()
+                            .weatherCondition(weather != null ? weather.condition() : "UNKNOWN")
+                            .temperatureCelsius(weather != null ? weather.temperature() : 0.0)
+                            .roadType(road != null ? road.roadType() : "unknown")
+                            .neighborhood(road != null ? road.streetName() : "unknown")
+                            .daylight(true) // Ή υπολόγισέ το αν θέλεις
+                            .build();
+
+                    // 4. Ενημερώνουμε το Report
+                    report.setContextData(context);
+                    report.setStatus(AccidentStatus.ENRICHING); // Ή ENRICHED αν το προσθέσεις στο Enum
+
+                    // 5. ΣΩΖΟΥΜΕ ΣΤΗ ΒΑΣΗ (Το πιο σημαντικό βήμα που έλειπε)
+                    repository.save(report);
+                    log.info("Successfully updated accident report {} with road and weather data.", caseId);
+                });
+
                 intelligenceClient.processAiAnalysis(caseId);
             } catch (Exception e) {
                 log.error("Background processing failed for case: {}", caseId, e);

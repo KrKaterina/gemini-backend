@@ -6,3 +6,4 @@ import java.util.Map;
 public record OverpassResponse(List<Element> elements) {
     public record Element(Map<String, String> tags) {}
 }
+

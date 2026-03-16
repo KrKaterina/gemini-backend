@@ -47,7 +47,8 @@ public class EnrichmentOrchestrator implements ContextEnrichmentClient {
             }
 
             // 2. Parallel Reactive Fetching
-            var weatherFuture = weatherAdapter.fetchHistoricalWeather(lat, lng, now).toFuture();
+           // var weatherFuture = weatherAdapter.fetchHistoricalWeather(lat, lng, now).toFuture();
+            var weatherFuture = weatherAdapter.fetchWeatherAtTimestamp(lat, lng, now).toFuture();
             var roadFuture = roadAdapter.fetchRoadMetadata(lat, lng).toFuture();
             CompletableFuture.allOf(weatherFuture, roadFuture).join();
 
