@@ -36,4 +36,31 @@ public class WeatherAdapter {
                 })
                 .doOnError(e -> log.error("Weather API failure: {}", e.getMessage()));
     }
+
+    public Mono<WeatherMetrics> fetchWeatherAtTimestamp(double lat, double lng, Instant timestamp) {
+        String date = timestamp.atOffset(ZoneOffset.UTC).toLocalDate().toString();
+        int hour = timestamp.atOffset(ZoneOffset.UTC).getHour();
+        int minute = timestamp.atOffset(ZoneOffset.UTC).getMinute();
+
+        return webClient.get()
+                .uri(u -> u.path("/archive")
+                        .queryParam("latitude", lat)
+                        .queryParam("longitude", lng)
+                        .queryParam("start_date", date)
+                        .queryParam("end_date", date)
+                        .queryParam("hourly", "temperature_2m,weather_code")
+                        .build())
+                .retrieve()
+                .bodyToMono(WeatherResponse.class)
+                .map(res -> {
+                    // interpolation για το λεπτό
+                    double tempHour = res.hourly().temperatures().get(hour);
+                    double tempNextHour = res.hourly().temperatures().get(hour + 1);
+                    double interpolatedTemp = tempHour + (tempNextHour - tempHour) * (minute / 60.0);
+
+                    int weatherCode = res.hourly().weatherCodes().get(hour);
+                    return new WeatherMetrics("CODE_" + weatherCode, interpolatedTemp);
+                })
+                .doOnError(e -> log.error("Weather API failure at timestamp {}: {}", timestamp, e.getMessage()));
+    }
 }
