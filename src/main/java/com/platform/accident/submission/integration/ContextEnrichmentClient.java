@@ -5,5 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 public interface ContextEnrichmentClient {
-    Map<String, Object> enrichAccidentContext(String caseId, Location location);
+    // FIX: Typed DTO return instead of Map<String, Object>
+    EnrichmentResponse enrichAccidentContext(String caseId, Location location);
 }
