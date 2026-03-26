@@ -41,23 +41,46 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
      * Persists the AI results back into the main Accident aggregate.
      */
     @Override
+//    public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
+//        repository.findByCaseId(caseId).ifPresentOrElse(report -> {
+//            log.info("Persisting AI Analysis for case: {}", caseId);
+//
+//            // Map AI results to the raw map (or structured field) in your AccidentReport entity
+//            // We use the existing aiAnalysis map logic for compatibility
+//            report.setAiAnalysis(java.util.Map.of(
+//                    "summary", aiResult.summary(),
+//                    "severity", aiResult.severityLevel(),
+//                    "entities", aiResult.entities(),
+//                    "nextSteps", aiResult.suggestedNextSteps()
+//            ));
+//
+//            report.setStatus(AccidentStatus.PROCESSED);
+//            repository.save(report);
+//
+//        }, () -> log.error("Received AI result for non-existent case: {}", caseId));
+//    }
     public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
-        repository.findByCaseId(caseId).ifPresentOrElse(report -> {
-            log.info("Persisting AI Analysis for case: {}", caseId);
+        repository.findByCaseId(caseId).ifPresent(report -> {
 
-            // Map AI results to the raw map (or structured field) in your AccidentReport entity
-            // We use the existing aiAnalysis map logic for compatibility
-            report.setAiAnalysis(java.util.Map.of(
-                    "summary", aiResult.summary(),
-                    "severity", aiResult.severityLevel(),
-                    "entities", aiResult.entities(),
-                    "nextSteps", aiResult.suggestedNextSteps()
-            ));
+            // Τα πεδία μπαίνουν στη βάση αφού το AI απάντησε
+            java.util.Map<String, Object> finalData = new java.util.HashMap<>();
 
-            report.setStatus(AccidentStatus.PROCESSED);
+            finalData.put("severity", aiResult.severityLevel()); // Low, Medium, High, Fatal
+            finalData.put("detailedReconstruction", aiResult.rawAiOutput());
+            finalData.put("analysisDate", java.time.Instant.now());
+
+            report.setAiAnalysis(finalData);
+
+            // Αν το AI έβγαλε FATAL ή HIGH, το status στη βάση γίνεται άμεσο PENDING_REVIEW
+            if ("FATAL".equals(aiResult.severityLevel()) || "HIGH".equals(aiResult.severityLevel())) {
+                report.setStatus(AccidentStatus.PENDING_REVIEW); // status για επείγον
+            } else {
+                report.setStatus(AccidentStatus.PROCESSED);
+            }
+
             repository.save(report);
-
-        }, () -> log.error("Received AI result for non-existent case: {}", caseId));
+            log.info("Analysis persisted in MongoDB with severity: {}", aiResult.severityLevel());
+        });
     }
 
     @Override
