@@ -37,4 +37,7 @@ public class AccidentReport {
     private Map<String, Object> aiAnalysis;
 
     private Map<String, Object> workflow;
+
+    private java.util.List<byte[]> images;
+    private byte[] audioRecording;
 }
