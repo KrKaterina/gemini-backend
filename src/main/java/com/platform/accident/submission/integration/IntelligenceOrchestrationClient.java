@@ -5,3 +5,4 @@ import org.springframework.context.annotation.Profile;
 public interface IntelligenceOrchestrationClient {
     void processAiAnalysis(String caseId);
 }
+

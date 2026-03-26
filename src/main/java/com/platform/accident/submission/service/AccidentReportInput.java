@@ -1,6 +1,8 @@
 package com.platform.accident.submission.service;
 
 import com.platform.accident.submission.domain.Location;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -12,5 +14,7 @@ public record AccidentReportInput(
         Instant occurrenceTime,
         Location location,
         String description,
-        List<String> assetIds
+        List<String> assetIds,
+        List<MultipartFile> images,
+        MultipartFile audio
 ) {}

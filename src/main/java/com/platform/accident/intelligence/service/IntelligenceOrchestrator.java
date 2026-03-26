@@ -1,6 +1,7 @@
 package com.platform.accident.intelligence.service;
 
 
+import com.platform.accident.intelligence.client.factory.AiProviderFactory;
 import com.platform.accident.submission.integration.*;
 import com.platform.accident.intelligence.client.AiModelProvider;
 import com.platform.accident.intelligence.domain.AiIntelligenceResult;
@@ -10,8 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
+import org.springframework.beans.factory.annotation.Value;
 import java.time.Instant;
+
 
 @Slf4j
 @Service
@@ -20,8 +22,12 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
 
     private final ReportViewerClient reportViewer;
     private final IntelligenceCallbackClient callbackClient;
-    private final AiModelProvider aiModelProvider;
+  //  private final AiModelProvider aiModelProvider;
     private final AiLogRepository logRepository;
+    private final AiProviderFactory providerFactory;
+
+    @Value("${ai.provider}")
+    private String providerName;
 
     /**
      * Public entry point called by Submission Module.
@@ -30,38 +36,49 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
     @Async
     @Override
     public void processAiAnalysis(String caseId) {
-        log.info("Starting AI analysis orchestration for Case ID: {}", caseId);
-
         try {
-            // 1. Data Gathering (Cross-Module View)
+            // 1. Παίρνουμε το εμπλουτισμένο πακέτο
             AnalysisSourceData sourceData = reportViewer.getSourceDataForAnalysis(caseId)
-                    .orElseThrow(() -> new IllegalStateException("Source data not found for " + caseId));
+                    .orElseThrow(() -> new IllegalStateException("Source not found"));
 
-            // 2. Prompt Engineering (Internal Logic)
+            // 2. Φτιάχνουμε το κείμενο
             String prompt = constructConsolidatedPrompt(sourceData);
 
-            // 3. AI Inference (External Dependency)
+            // 3. Επιλέγουμε τον Provider
+            AiModelProvider aiModelProvider = providerFactory.getProvider(providerName);
+
+            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ (Κείμενο, Εικόνες, Ήχο)
             Instant startTime = Instant.now();
-            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(prompt);
+            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(
+                    prompt,
+                    sourceData.images(),
+                    sourceData.audioRecording()
+            );
 
-            // 4. Persistence (Local Module Audit Log)
+            // 5. Καταγραφή & Callback
             saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
-
-            // 5. Completion Callback
             callbackClient.onAnalysisComplete(caseId, aiResult);
 
         } catch (Exception e) {
-            log.error("AI Analysis failed for Case {}: {}", caseId, e.getMessage());
-            callbackClient.onAnalysisFailure(caseId, "AI_PROCESSING_ERROR");
+            log.error("Analysis failed: {}", e.getMessage());
+            callbackClient.onAnalysisFailure(caseId, "AI_ERROR");
         }
     }
 
     private String constructConsolidatedPrompt(AnalysisSourceData data) {
+        // Φτιάχνουμε ΑΥΤΟΜΑΤΑ το string
+        String time = (data.occurrenceTime() != null) ? data.occurrenceTime().toString() : "Unknown Date";
+
         return String.format(
-                "Analyze this road accident. Context: Weather is %s, Road is %s. " +
-                        "Coordinates: [%f, %f]. Incident Description: %s",
-                data.weatherCondition(), data.roadType(),
-                data.lat(), data.lng(), data.rawDescription()
+                "Incident occurred on %s. Weather: %s. Road Type: %s. " +
+                        "Location: Lat %.4f, Lng %.4f. Description provided: %s. " +
+                        "Please analyze this along with the attached media.",
+                time,
+                data.weatherCondition(),
+                data.roadType(),
+                data.lat(),
+                data.lng(),
+                data.rawDescription()
         );
     }
 

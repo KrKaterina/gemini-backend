@@ -15,10 +15,10 @@ public class OpenAiProviderAdapter implements AiModelProvider {
     private final AiSchemaEnforcer schemaEnforcer;
 
     @Override
-    public AiIntelligenceResult analyzeIncident(String consolidatedPrompt) {
-        // Implementation of the "Instruction Template"
-        // to ensure the LLM returns valid JSON.
-        String rawResponse = simulateProviderCall(consolidatedPrompt);
+    public AiIntelligenceResult analyzeIncident(String prompt, List<byte[]> images, byte[] audio) {
+        // Η OpenAI έκδοση αγνοεί προς το παρόν τις εικόνες/ήχο
+        // και καλεί τη simulate μέθοδο όπως πριν
+        String rawResponse = simulateProviderCall(prompt);
         return schemaEnforcer.enforceSchema(rawResponse);
     }
 
