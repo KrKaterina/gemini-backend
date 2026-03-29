@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,12 +32,38 @@ public class SubmissionService {
 
         String caseId = generateCaseId();
 
+        // 1. ΜΕΤΑΤΡΟΠΗ ΤΩΝ ΕΙΚΟΝΩΝ (Από MultipartFile σε byte[])
+        List<byte[]> imageBytesList = new java.util.ArrayList<>();
+        if (input.images() != null) {
+            for (org.springframework.web.multipart.MultipartFile file : input.images()) {
+                try {
+                    imageBytesList.add(file.getBytes());
+                } catch (java.io.IOException e) {
+                    log.error("Failed to convert image to bytes for case: {}", caseId);
+                }
+            }
+        }
+
+        // 2. ΜΕΤΑΤΡΟΠΗ ΤΟΥ ΗΧΟΥ (Από MultipartFile σε byte[])
+        byte[] audioBytes = null;
+        if (input.audio() != null) {
+            try {
+                audioBytes = input.audio().getBytes();
+            } catch (java.io.IOException e) {
+                log.error("Failed to convert audio to bytes for case: {}", caseId);
+            }
+        }
+
         AccidentReport report = AccidentReport.builder()
                 .caseId(caseId)
                 .reporterId(userId)
                 .status(AccidentStatus.RECEIVED) // Start State
                 .createdAt(Instant.now())
                 .location(input.location())
+                .occurrenceTime(input.occurrenceTime())
+                .rawDescription(input.description())
+                .images(imageBytesList)
+                .audioRecording(audioBytes)
                 .assets(input.assetIds().stream()
                         .map(id -> new AssetReference(id, id.contains("aud") ? AssetType.AUDIO_TESTIMONY.name() : AssetType.VEHICLE_PHOTO.name()))
                         .toList())

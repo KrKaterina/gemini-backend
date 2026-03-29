@@ -20,4 +20,6 @@ public class AiAnalysisLog {
     private long durationMs;
     private boolean successful;
     private String errorDetail;
+
+    private String sentPrompt;
 }
