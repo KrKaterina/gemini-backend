@@ -50,4 +50,19 @@ public class AccidentSubmissionController {
     public ResponseEntity<AccidentReport> getReport(@PathVariable String caseId) {
         return ResponseEntity.ok(submissionService.getReport(caseId));
     }
+
+    @GetMapping("/{caseId}/images/{index}")
+    public ResponseEntity<byte[]> getImageByIndex(@PathVariable String caseId, @PathVariable int index) {
+        AccidentReport report = submissionService.getReport(caseId);
+
+        if (report.getImages() == null || index < 0 || index >= report.getImages().size()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        byte[] imageData = report.getImages().get(index);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(imageData);
+    }
 }

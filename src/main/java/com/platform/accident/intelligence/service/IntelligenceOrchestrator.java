@@ -55,8 +55,7 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
                     sourceData.audioRecording()
             );
 
-            // 5. Καταγραφή & Callback
-            saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
+            // 5. Καταγραφή & CallbacksaveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
             callbackClient.onAnalysisComplete(caseId, aiResult);
 
         } catch (Exception e) {
@@ -82,12 +81,13 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
         );
     }
 
-    private void saveAnalysisLog(String caseId, String model, Instant start) {
+    private void saveAnalysisLog(String caseId, String model, Instant start, String prompt) {
         AiAnalysisLog auditLog = new AiAnalysisLog();
         auditLog.setCaseId(caseId);
         auditLog.setModelId(model);
         auditLog.setProcessedAt(Instant.now());
         auditLog.setDurationMs(Instant.now().toEpochMilli() - start.toEpochMilli());
+        auditLog.setSentPrompt(prompt);
         logRepository.save(auditLog);
     }
 }
