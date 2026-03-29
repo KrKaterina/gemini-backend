@@ -27,4 +27,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }
+
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ProblemDetail handleConcurrency(Exception ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "The record was modified by another agent. Please refresh and try again.");
+        pd.setTitle("Concurrency Conflict");
+        return pd;
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail handleBusinessPolicyViolation(IllegalStateException ex) {
+        // Maps business logic blocks to a clean 400 error for the UI
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Business Policy Violation");
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
 }
