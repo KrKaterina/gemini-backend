@@ -6,7 +6,6 @@ import com.platform.accident.intelligence.domain.*;
 import com.platform.accident.intelligence.service.AiSchemaEnforcer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import java.util.List;
 
 @RequiredArgsConstructor
 @Component
@@ -15,9 +14,8 @@ public class OpenAiProviderAdapter implements AiModelProvider {
     private final AiSchemaEnforcer schemaEnforcer;
 
     @Override
-    public AiIntelligenceResult analyzeIncident(String prompt, List<byte[]> images, byte[] audio) {
-        // Η OpenAI έκδοση αγνοεί προς το παρόν τις εικόνες/ήχο
-        // και καλεί τη simulate μέθοδο όπως πριν
+    public AiIntelligenceResult analyzeIncident(String prompt) {
+
         String rawResponse = simulateProviderCall(prompt);
         return schemaEnforcer.enforceSchema(rawResponse);
     }

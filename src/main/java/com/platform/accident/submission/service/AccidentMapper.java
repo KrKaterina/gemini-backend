@@ -10,9 +10,8 @@ public class AccidentMapper {
                 request.occurrenceTime(),
                 request.location(),
                 request.description(),
-                request.assetIds(),
-                java.util.List.of(),
-                null
+                request.assetIds()
+
         );
     }
 }

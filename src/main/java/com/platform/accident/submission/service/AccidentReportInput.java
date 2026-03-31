@@ -14,7 +14,5 @@ public record AccidentReportInput(
         Instant occurrenceTime,
         Location location,
         String description,
-        List<String> assetIds,
-        List<MultipartFile> images,
-        MultipartFile audio
+        List<String> assetIds
 ) {}

@@ -31,13 +31,13 @@ public class AccidentReport {
     private Location location;
     private String rawDescription;
 
-    private List<AssetReference> assets;
+    //private List<AssetReference> assets;
+    // NOW: Simply stores IDs. Ownership is managed by Asset Module.
+    private List<String> assetIds;
+
     //private Map<String, Object> contextData;
     private EnrichedContext contextData;
     private Map<String, Object> aiAnalysis;
 
     private Map<String, Object> workflow;
-
-    private java.util.List<byte[]> images;
-    private byte[] audioRecording;
 }
