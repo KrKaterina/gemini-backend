@@ -1,6 +1,5 @@
 package com.platform.accident.submission.api;
 
-
 import com.platform.accident.submission.api.dto.*;
 import com.platform.accident.submission.domain.AccidentReport;
 import com.platform.accident.submission.service.SubmissionService;
@@ -9,9 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/accidents")
@@ -23,8 +19,6 @@ public class AccidentSubmissionController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AccidentSubmissionResponse> submitReport(
             @RequestPart("request") AccidentReportRequest request, // To JSON μέρος
-            @RequestPart(value = "images", required = false) List<MultipartFile> images, // Οι εικόνες
-            @RequestPart(value = "audio", required = false) MultipartFile audio,
             @RequestHeader("X-User-Id") String userId) {
 
         // Map DTO to internal service record
@@ -32,9 +26,7 @@ public class AccidentSubmissionController {
                 request.occurrenceTime(),
                 request.location(),
                 request.description(),
-                request.assetIds(),
-                images,
-                audio
+                request.assetIds()
         );
 
         AccidentReport report = submissionService.submitAccident(input, userId);
@@ -51,18 +43,4 @@ public class AccidentSubmissionController {
         return ResponseEntity.ok(submissionService.getReport(caseId));
     }
 
-    @GetMapping("/{caseId}/images/{index}")
-    public ResponseEntity<byte[]> getImageByIndex(@PathVariable String caseId, @PathVariable int index) {
-        AccidentReport report = submissionService.getReport(caseId);
-
-        if (report.getImages() == null || index < 0 || index >= report.getImages().size()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        byte[] imageData = report.getImages().get(index);
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_JPEG)
-                .body(imageData);
-    }
 }

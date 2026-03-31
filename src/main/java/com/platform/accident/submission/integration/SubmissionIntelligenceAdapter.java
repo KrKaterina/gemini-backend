@@ -1,7 +1,5 @@
 package com.platform.accident.submission.integration;
 
-
-import com.platform.accident.submission.domain.AccidentReport;
 import com.platform.accident.submission.domain.AccidentStatus;
 import com.platform.accident.submission.repository.AccidentRepository;
 import com.platform.accident.intelligence.domain.AiIntelligenceResult;
@@ -27,44 +25,20 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
         return repository.findByCaseId(caseId)
                 .map(report -> new AnalysisSourceData(
                         report.getRawDescription(),
-                        report.getContextData() != null ? report.getContextData().weatherCondition() : "Unknown",
-                        report.getContextData() != null ? report.getContextData().roadType() : "Unknown",
+                        report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A",
+                        report.getContextData() != null ? report.getContextData().roadType() : "N/A",
                         report.getLocation().lat(),
                         report.getLocation().lng(),
                         report.getOccurrenceTime(),
-                        report.getImages(),
-                        report.getAudioRecording()
+                        report.getCaseId()
                 ));
     }
+
     /**
      * WRITE: Implementation of IntelligenceCallbackClient.
      * Persists the AI results back into the main Accident aggregate.
      */
     @Override
-    //δουλευει
-//    public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
-//        repository.findByCaseId(caseId).ifPresent(report -> {
-//
-//            // Τα πεδία μπαίνουν στη βάση αφού το AI απάντησε
-//            java.util.Map<String, Object> finalData = new java.util.HashMap<>();
-//
-//            finalData.put("severity", aiResult.severityLevel()); // Low, Medium, High, Fatal
-//            finalData.put("detailedReconstruction", aiResult.rawAiOutput());
-//            finalData.put("analysisDate", java.time.Instant.now());
-//
-//            report.setAiAnalysis(finalData);
-//
-//            // Αν το AI έβγαλε FATAL ή HIGH, το status στη βάση γίνεται άμεσο PENDING_REVIEW
-//            if ("FATAL".equals(aiResult.severityLevel()) || "HIGH".equals(aiResult.severityLevel())) {
-//                report.setStatus(AccidentStatus.PENDING_REVIEW); // status για επείγον
-//            } else {
-//                report.setStatus(AccidentStatus.PROCESSED);
-//            }
-//
-//            repository.save(report);
-//            log.info("Analysis persisted in MongoDB with severity: {}", aiResult.severityLevel());
-//        });
-//    }
     public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
         repository.findByCaseId(caseId).ifPresent(report -> {
             java.util.Map<String, Object> finalData = new java.util.HashMap<>();

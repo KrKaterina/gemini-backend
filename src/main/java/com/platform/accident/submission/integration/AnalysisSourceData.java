@@ -13,7 +13,6 @@ public record AnalysisSourceData(
         double lat,
         double lng,
         Instant occurrenceTime,
-        List<byte[]> images,   // Προαιρετικό (μπορεί να είναι null ή empty)
-        byte[] audioRecording  // Προαιρετικό (μπορεί να είναι null)
+        String caseId
 ) {}
 

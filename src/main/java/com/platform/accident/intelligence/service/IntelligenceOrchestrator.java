@@ -22,7 +22,6 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
 
     private final ReportViewerClient reportViewer;
     private final IntelligenceCallbackClient callbackClient;
-  //  private final AiModelProvider aiModelProvider;
     private final AiLogRepository logRepository;
     private final AiProviderFactory providerFactory;
 
@@ -47,16 +46,14 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
             // 3. Επιλέγουμε τον Provider
             AiModelProvider aiModelProvider = providerFactory.getProvider(providerName);
 
-            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ (Κείμενο, Εικόνες, Ήχο)
+            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ
             Instant startTime = Instant.now();
-            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(
-                    prompt,
-                    sourceData.images(),
-                    sourceData.audioRecording()
-            );
+            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(prompt);
 
             // 5. Καταγραφή & CallbacksaveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
             callbackClient.onAnalysisComplete(caseId, aiResult);
+            saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime, prompt);
+            log.info("AI RESULT for case {} -> severity={}", caseId, aiResult.severityLevel());
 
         } catch (Exception e) {
             log.error("Analysis failed: {}", e.getMessage());
