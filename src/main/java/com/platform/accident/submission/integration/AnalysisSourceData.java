@@ -10,9 +10,12 @@ public record AnalysisSourceData(
         String rawDescription, // Υποχρεωτικό
         String weatherCondition,
         String roadType,
+        String neighborhood,    // Previously "Ghost"
+        boolean isDaylight,
         double lat,
         double lng,
         Instant occurrenceTime,
-        String caseId
+        String caseId,
+        List<String> assetIds   // Required for AI Vision
 ) {}
 

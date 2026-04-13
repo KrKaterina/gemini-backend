@@ -1,8 +1,13 @@
 package com.platform.accident.media.service;
 
 import com.platform.accident.media.domain.*;
+import com.platform.accident.media.exception.AssetNotFoundException;
+import com.platform.accident.media.exception.FileTooLargeException;
+import com.platform.accident.media.exception.InvalidMediaTypeException;
 import com.platform.accident.media.infrastructure.StorageProvider;
 import com.platform.accident.media.repository.MediaAssetRepository;
+import com.platform.accident.submission.integration.AiAssetData;
+import com.platform.accident.submission.integration.AiMediaClient;
 import com.platform.accident.submission.integration.MediaAssetClient;
 import com.platform.integration.media.MediaMetadataView;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +16,10 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
-import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Arrays;
@@ -23,12 +29,14 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MediaAssetService implements MediaAssetClient {
+public class MediaAssetService implements MediaAssetClient, AiMediaClient {
 
     private final MediaAssetRepository assetRepository;
     private final StorageProvider storageProvider;
+
     private static final List<String> ALLOWED_MIMES = Arrays.asList("image/jpeg", "image/png", "audio/mpeg", "audio/wav");
     private static final long MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB limit
+
     private final GridFsTemplate gridFsTemplate;
 
     /**
@@ -125,10 +133,24 @@ public class MediaAssetService implements MediaAssetClient {
     }
 
     // Fetches metadata for Dashboard visualization (Used by Module 4 Review)
+//    public List<MediaMetadataView> getAssetsByCase(String caseId) {
+//        return assetRepository.findAllByCaseId(caseId).stream()
+//                .map(a -> new MediaMetadataView(a.getAssetId(), a.getFileName(),
+//                        a.getMimeType(), a.getFileSize(), "/api/v1/assets/" + a.getAssetId() + "/raw"))
+//                .toList();
+//    }
+    /**
+     * ALIGNED PATHING: Synchronized with MediaController @GetMapping.
+     */
     public List<MediaMetadataView> getAssetsByCase(String caseId) {
         return assetRepository.findAllByCaseId(caseId).stream()
-                .map(a -> new MediaMetadataView(a.getAssetId(), a.getFileName(),
-                        a.getMimeType(), a.getFileSize(), "/api/v1/assets/" + a.getAssetId() + "/raw"))
+                .map(a -> new MediaMetadataView(
+                        a.getAssetId(),
+                        a.getFileName(),
+                        a.getMimeType(),
+                        a.getFileSize(),
+                        "/api/v1/media/" + a.getAssetId() + "/stream" // Πρέπει να ταιριάζει με τον Controller
+                ))
                 .toList();
     }
 
@@ -137,15 +159,65 @@ public class MediaAssetService implements MediaAssetClient {
         MediaAsset asset = assetRepository.findByAssetId(assetId)
                 .orElseThrow(() -> new AssetNotFoundException(assetId));
 
-        return new InputStreamResource(storageProvider.retrieve(asset.getStoragePath()));
+        // Χρησιμοποιούμε ObjectId εδώ για την αναζήτηση
+        var file = gridFsTemplate.findOne(new Query(
+                Criteria.where("_id").is(new org.bson.types.ObjectId(asset.getGridFsId()))
+        ));
+
+        if (file == null) throw new AssetNotFoundException("Physical file missing");
+
+        try {
+            return new InputStreamResource(gridFsTemplate.getResource(file).getInputStream());
+        } catch (IOException e) {
+            throw new RuntimeException("Streaming failed", e);
+        }
     }
 
-    public void validateFile(String fileName, String mimeType, long size) {
-        if (!ALLOWED_MIMES.contains(mimeType)) {
-            throw new InvalidMediaTypeException("Unsupported format: " + mimeType);
-        }
-        if (size > MAX_FILE_SIZE) {
-            throw new FileTooLargeException("Maximum upload size is 15MB");
+    public MediaAsset getInternalMetadata(String assetId) {
+        return assetRepository.findByAssetId(assetId)
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+    }
+
+    /**
+     * AI-VISION PORT: Internal byte-fetching for the LLM.
+     */
+    @Override
+    public byte[] getAssetBytes(String assetId) {
+        log.info("Media Module: Providing bytes for AI analysis of asset {}", assetId);
+
+        var asset = assetRepository.findByAssetId(assetId)
+                .orElseThrow(() -> new RuntimeException("Asset not found for AI: " + assetId));
+
+        try (InputStream is = gridFsTemplate.getResource(
+                gridFsTemplate.findOne(new Query(Criteria.where("_id").is(asset.getGridFsId())))).getInputStream()) {
+
+            return is.readAllBytes();
+        } catch (Exception e) {
+            log.error("Failed to read bytes for AI Vision task", e);
+            throw new RuntimeException("AI binary fetch failed", e);
         }
     }
+
+
+    /**
+     * AI-VISION & AUDIO PORT: Υλοποίηση για το Intelligence Module.
+     */
+    public AiAssetData getAssetData(String assetId) {
+        var asset = assetRepository.findByAssetId(assetId)
+                .orElseThrow(() -> new RuntimeException("Asset not found: " + assetId));
+
+        try (var is = gridFsTemplate.getResource(
+                gridFsTemplate.findOne(org.springframework.data.mongodb.core.query.Query.query(
+                        org.springframework.data.mongodb.core.query.Criteria.where("_id").is(asset.getGridFsId())))
+        ).getInputStream()) {
+
+            byte[] bytes = is.readAllBytes();
+            return new AiAssetData(bytes, asset.getMimeType()); // Επιστρέφουμε και το MimeType!
+
+        } catch (Exception e) {
+            log.error("Failed to fetch binary for AI: {}", assetId);
+            throw new RuntimeException("Binary fetch failed", e);
+        }
+    }
+
 }

@@ -32,32 +32,62 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
      * Public entry point called by Submission Module.
      * Implements Asynchronous processing requirement.
      */
-    @Async
+    @Async("intelligenceTaskExecutor")
     @Override
+//    public void processAiAnalysis(String caseId) {
+//        try {
+//            // 1. Παίρνουμε το εμπλουτισμένο πακέτο
+//            AnalysisSourceData sourceData = reportViewer.getSourceDataForAnalysis(caseId)
+//                    .orElseThrow(() -> new IllegalStateException("Source not found"));
+//
+//            // 2. Φτιάχνουμε το κείμενο
+//            String prompt = constructConsolidatedPrompt(sourceData);
+//
+//            // 3. Επιλέγουμε τον Provider
+//            AiModelProvider aiModelProvider = providerFactory.getProvider(providerName);
+//
+//            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ
+//            Instant startTime = Instant.now();
+//            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(prompt);
+//
+//            // 5. Καταγραφή & CallbacksaveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
+//            callbackClient.onAnalysisComplete(caseId, aiResult);
+//            saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime, prompt);
+//            log.info("AI RESULT for case {} -> severity={}", caseId, aiResult.severityLevel());
+//
+//        } catch (Exception e) {
+//            log.error("Analysis failed: {}", e.getMessage());
+//            callbackClient.onAnalysisFailure(caseId, "AI_ERROR");
+//        }
+//    }
     public void processAiAnalysis(String caseId) {
         try {
-            // 1. Παίρνουμε το εμπλουτισμένο πακέτο
             AnalysisSourceData sourceData = reportViewer.getSourceDataForAnalysis(caseId)
-                    .orElseThrow(() -> new IllegalStateException("Source not found"));
+                    .orElseThrow(() -> new IllegalStateException("Source not found for " + caseId));
 
-            // 2. Φτιάχνουμε το κείμενο
-            String prompt = constructConsolidatedPrompt(sourceData);
+            // Use Component Names: sourceData.occurrenceTime() instead of getOccurrenceTime()
+            String expertPrompt = String.format(
+                    "Reconstruct accident at %s. Context: %s on %s. Neighborhood: %s. Daylight: %s. Description: %s",
+                    sourceData.occurrenceTime(), // 8
+                    sourceData.weatherCondition(), // 2
+                    sourceData.roadType(), // 3
+                    sourceData.neighborhood(), // 4
+                    sourceData.isDaylight() ? "Yes" : "No", // 5
+                    sourceData.rawDescription() // 1
+            );
 
-            // 3. Επιλέγουμε τον Provider
-            AiModelProvider aiModelProvider = providerFactory.getProvider(providerName);
+            AiModelProvider model = providerFactory.getProvider(providerName);
 
-            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ
-            Instant startTime = Instant.now();
-            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(prompt);
+            // CALL WITH TWO PARAMETERS (Prompt and the List from record)
+            AiIntelligenceResult result = model.analyzeIncident(
+                    expertPrompt,
+                    sourceData.assetIds() // 10
+            );
 
-            // 5. Καταγραφή & CallbacksaveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
-            callbackClient.onAnalysisComplete(caseId, aiResult);
-            saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime, prompt);
-            log.info("AI RESULT for case {} -> severity={}", caseId, aiResult.severityLevel());
-
+            callbackClient.onAnalysisComplete(caseId, result);
         } catch (Exception e) {
-            log.error("Analysis failed: {}", e.getMessage());
-            callbackClient.onAnalysisFailure(caseId, "AI_ERROR");
+            log.error("Analysis Failed for case {}: {}", caseId, e.getMessage());
+            callbackClient.onAnalysisFailure(caseId, "AI_FAILURE");
         }
     }
 

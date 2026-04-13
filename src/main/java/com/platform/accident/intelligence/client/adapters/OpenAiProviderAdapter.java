@@ -7,6 +7,8 @@ import com.platform.accident.intelligence.service.AiSchemaEnforcer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Component
 public class OpenAiProviderAdapter implements AiModelProvider {
@@ -14,7 +16,7 @@ public class OpenAiProviderAdapter implements AiModelProvider {
     private final AiSchemaEnforcer schemaEnforcer;
 
     @Override
-    public AiIntelligenceResult analyzeIncident(String prompt) {
+    public AiIntelligenceResult analyzeIncident(String prompt, List<String> assetIds) {
 
         String rawResponse = simulateProviderCall(prompt);
         return schemaEnforcer.enforceSchema(rawResponse);
