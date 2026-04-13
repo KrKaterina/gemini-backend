@@ -42,7 +42,11 @@ public class SubmissionService {
                 .build();
 
         repository.save(report);
+
+        mediaClient.linkAssetsToCase(caseId, input.assetIds());
+
         triggerBackgroundProcesses(caseId, input.location());
+
         return report;
     }
 

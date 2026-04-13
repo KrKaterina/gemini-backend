@@ -21,14 +21,11 @@ public class MediaAsset {
     private String fileName;
     private String mimeType;
     private long fileSize;
-//    private String checksum;
-//    private AssetStatus status;
-//    private Instant createdAt;
-//
-//    // Metadata for the storage backend
-//    private String storageProvider; // "GRIDFS" or "S3"
-//    private String storagePath;     // ID in GridFS or Key in S3
-    private String gridFsId; // Physical reference in fs.files
     private AssetStatus status;
     private Instant createdAt;
+
+    // Metadata for the storage backend
+    private String storageProvider; // "GRIDFS" or "S3"
+    private String storagePath;     // ID in GridFS or Key in S3
+    private String gridFsId; // Physical reference in fs.files
 }
