@@ -27,20 +27,38 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
      * Maps the Submission domain to the neutral AnalysisSourceData DTO.
      */
     @Override
+    //σχολιο μονο για να κανω τεστ το νεο
+//    public Optional<AnalysisSourceData> getSourceDataForAnalysis(String caseId) {
+//        return repository.findByCaseId(caseId)
+//                .map(report -> new AnalysisSourceData(
+//                        report.getRawDescription(),                                  // 1
+//                        report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A", // 2
+//                        report.getContextData() != null ? report.getContextData().roadType() : "N/A",      // 3
+//                        report.getContextData() != null ? report.getContextData().neighborhood() : "Unknown", // 4
+//                        report.getContextData() != null && report.getContextData().daylight(), // 5 (isDaylight boolean)
+//                        report.getLocation().lat(),                                  // 6
+//                        report.getLocation().lng(),                                  // 7
+//                        report.getOccurrenceTime(),                                  // 8
+//                        report.getCaseId(),                                          // 9
+//                        report.getAssetIds() != null ? report.getAssetIds() : java.util.List.of() // 10
+//                ));
+//    }
     public Optional<AnalysisSourceData> getSourceDataForAnalysis(String caseId) {
-        return repository.findByCaseId(caseId)
-                .map(report -> new AnalysisSourceData(
-                        report.getRawDescription(),                                  // 1
-                        report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A", // 2
-                        report.getContextData() != null ? report.getContextData().roadType() : "N/A",      // 3
-                        report.getContextData() != null ? report.getContextData().neighborhood() : "Unknown", // 4
-                        report.getContextData() != null && report.getContextData().daylight(), // 5 (isDaylight boolean)
-                        report.getLocation().lat(),                                  // 6
-                        report.getLocation().lng(),                                  // 7
-                        report.getOccurrenceTime(),                                  // 8
-                        report.getCaseId(),                                          // 9
-                        report.getAssetIds() != null ? report.getAssetIds() : java.util.List.of() // 10
-                ));
+        return repository.findByCaseId(caseId).map(report -> {
+            var ctx = report.getContextData();
+            return new AnalysisSourceData(
+                    report.getRawDescription(),
+                    ctx != null ? ctx.weatherCondition() : "UNKNOWN",
+                    ctx != null ? ctx.roadType() : "UNKNOWN",
+                    ctx != null ? ctx.neighborhood() : "Unknown Neighborhood", // Fulfilled
+                    ctx != null && ctx.daylight(),                             // Fulfilled (Boolean)
+                    report.getLocation().lat(),
+                    report.getLocation().lng(),
+                    report.getOccurrenceTime(),
+                    report.getCaseId(),
+                    report.getAssetIds() != null ? report.getAssetIds() : java.util.List.of() // 10
+            );
+        });
     }
 
     /**

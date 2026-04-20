@@ -16,6 +16,5 @@ public record AnalysisSourceData(
         double lng,
         Instant occurrenceTime,
         String caseId,
-        List<String> assetIds   // Required for AI Vision
-) {}
+        List<String> assetIds ) {}
 
