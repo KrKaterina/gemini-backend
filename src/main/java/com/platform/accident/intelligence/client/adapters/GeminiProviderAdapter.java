@@ -5,8 +5,8 @@ import com.google.genai.types.*;
 import com.platform.accident.intelligence.client.AiModelProvider;
 import com.platform.accident.intelligence.domain.AiIntelligenceResult;
 import com.platform.accident.intelligence.service.AiSchemaEnforcer;
-import com.platform.accident.submission.integration.AiAssetData;
 import com.platform.accident.submission.integration.AiMediaClient;
+import com.platform.accident.submission.integration.AiMediaResource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,6 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class GeminiProviderAdapter implements AiModelProvider {
-
     private final Client googleGenAiClient;
     private final AiSchemaEnforcer schemaEnforcer;
 
@@ -87,33 +86,99 @@ public class GeminiProviderAdapter implements AiModelProvider {
 //            throw new RuntimeException(e);
 //        }
 //    }
-    public AiIntelligenceResult analyzeIncident(String textPrompt, List<String> assetIds) {
-        try {
-            List<Part> parts = new ArrayList<>();
 
-            // 1. Add Expert Analysis Text Prompt
-            parts.add(Part.builder().text(textPrompt).build());
+    //doulevei alla den exei rules
+//    public AiIntelligenceResult analyzeIncident(String textPrompt, List<String> assetIds) {
+//        try {
+//            List<Part> parts = new ArrayList<>();
+//
+//            // 1. Add Expert Analysis Text Prompt
+//            parts.add(Part.builder().text(textPrompt).build());
+//
+//            // 2. FETCH AND ATTACH VISUAL EVIDENCE (Multimodality)
+//            assetIds.forEach(id -> {
+//                byte[] bytes = mediaClient.getAssetBytes(id);
+//                // Currently optimized for JPEGs as per business case
+//                parts.add(Part.builder()
+//                        .inlineData(Blob.builder().data(bytes).mimeType("image/jpeg").build())
+//                        .build());
+//                log.info("Visual evidence {} attached to prompt.", id);
+//            });
+//
+//            Content content = Content.builder().parts(parts).build();
+//            GenerateContentResponse response = googleGenAiClient.models.generateContent(
+//                    "gemini-2.5-flash", content, null
+//            );
+//
+//            return schemaEnforcer.enforceSchema(response.text());
+//        } catch (Exception e) {
+//            log.error("AI Multimodal Analysis failed: {}", e.getMessage());
+//            throw new RuntimeException(e);
+//        }
+//    }
+    public AiIntelligenceResult analyzeIncident(String basePrompt, List<String> assetIds) {
+        int maxRetries = 2;
+        int attempt = 0;
 
-            // 2. FETCH AND ATTACH VISUAL EVIDENCE (Multimodality)
-            assetIds.forEach(id -> {
-                byte[] bytes = mediaClient.getAssetBytes(id);
-                // Currently optimized for JPEGs as per business case
-                parts.add(Part.builder()
-                        .inlineData(Blob.builder().data(bytes).mimeType("image/jpeg").build())
-                        .build());
-                log.info("Visual evidence {} attached to prompt.", id);
-            });
+        while (attempt <= maxRetries) {
+            try {
 
-            Content content = Content.builder().parts(parts).build();
-            GenerateContentResponse response = googleGenAiClient.models.generateContent(
-                    "gemini-2.5-flash", content, null
-            );
+                // ΤΟ "ΜΑΓΙΚΟ" PROMPT ΠΟΥ ΕΠΙΒΑΛΛΕΙ ΤΗ ΔΟΜΗ
+                String strictPrompt = basePrompt + """
+            
+            STRICT OUTPUT FORMAT:
+            You must return a raw JSON object ONLY. No conversational text.
+            JSON Structure:
+            {
+              "summary": "Short technical overview of the impact",
+              "severityLevel": "LOW | MEDIUM | HIGH | FATAL",
+              "suggestedNextSteps": ["Step 1", "Step 2"],
+              "rawAiOutput": "Brief technical justification based on image and text"
+            }
+            """;
 
-            return schemaEnforcer.enforceSchema(response.text());
-        } catch (Exception e) {
-            log.error("AI Multimodal Analysis failed: {}", e.getMessage());
-            throw new RuntimeException(e);
+                List<Part> parts = new ArrayList<>();
+                parts.add(Part.builder().text(strictPrompt).build());
+
+                for (String assetId : assetIds) {
+                    try (AiMediaResource resource = mediaClient.getAssetResource(assetId)) {
+                        UploadFileConfig config = UploadFileConfig.builder()
+                                .mimeType(resource.mimeType()).displayName(resource.fileName()).build();
+
+                        byte[] fileBytes = resource.inputStream().readAllBytes();
+                        com.google.genai.types.File uploadResult = googleGenAiClient.files.upload(fileBytes, config);
+                        String uri = uploadResult.uri().orElseThrow();
+
+                        parts.add(Part.builder().fileData(FileData.builder().fileUri(uri).mimeType(resource.mimeType()).build()).build());
+                    }
+                }
+
+                GenerateContentResponse response = googleGenAiClient.models.generateContent(
+                        "gemini-2.5-flash",
+                        Content.builder().parts(parts).build(),
+                        null
+                );
+                return schemaEnforcer.enforceSchema(response.text());
+
+            } catch (Exception e) {
+                if (e.getMessage().contains("503") && attempt < maxRetries) {
+                    attempt++;
+                    log.warn("Gemini overloaded (503). Retrying attempt {}/{}...", attempt, maxRetries);
+                    try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                } else {
+                    log.error("AI Expert Engine failure after retries: {}", e.getMessage());
+                    // ΕΠΙΣΤΡΕΦΟΥΜΕ ΑΞΙΟΠΡΕΠΕΣ FALLBACK
+                    return new AiIntelligenceResult(
+                            "Analysis paused due to high AI demand",
+                            null,
+                            "UNKNOWN",
+                            List.of("Please perform manual visual verification"),
+                            "Error 503 from Google AI Provider"
+                    );
+                }
+            }
         }
+        return null;
     }
 
     @Override
@@ -122,12 +187,3 @@ public class GeminiProviderAdapter implements AiModelProvider {
     }
 
 }
-
-
-
-
-
-
-
-
-

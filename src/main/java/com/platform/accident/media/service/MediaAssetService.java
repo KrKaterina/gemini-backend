@@ -19,6 +19,9 @@ import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.platform.accident.submission.integration.AiMediaClient;
+import com.platform.accident.submission.integration.AiMediaResource;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
@@ -83,27 +86,35 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
      * Links temporary uploads to the final Accident Report case.
      */
     @Override
-    public void linkAssetsToCase(String caseId, List<String> assetIds) {
-        log.info("Linking {} assets to Case {}", assetIds.size(), caseId);
-
-//        List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
+//    public void linkAssetsToCase(String caseId, List<String> assetIds) {
+//        log.info("Linking {} assets to Case {}", assetIds.size(), caseId);
+//
+////        List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
+////        assets.forEach(asset -> {
+////            asset.setCaseId(caseId);
+////            asset.setStatus(AssetStatus.LINKED);
+////        });
+////
+////        assetRepository.saveAll(assets);
+//        if (assetIds == null || assetIds.isEmpty()) return;
+//
+//        var assets = assetRepository.findAllByAssetIdIn(assetIds);
 //        assets.forEach(asset -> {
 //            asset.setCaseId(caseId);
 //            asset.setStatus(AssetStatus.LINKED);
 //        });
-//
 //        assetRepository.saveAll(assets);
-        if (assetIds == null || assetIds.isEmpty()) return;
-
-        var assets = assetRepository.findAllByAssetIdIn(assetIds);
+//
+//        log.info("Hand-off Complete: Linked {} assets to case {}", assetIds.size(), caseId);
+//
+//    }
+    public void linkAssetsToCase(String caseId, List<String> assetIds) {
+        List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
         assets.forEach(asset -> {
             asset.setCaseId(caseId);
-            asset.setStatus(AssetStatus.LINKED);
+            asset.setStatus(com.platform.accident.media.domain.AssetStatus.LINKED);
         });
         assetRepository.saveAll(assets);
-
-        log.info("Hand-off Complete: Linked {} assets to case {}", assetIds.size(), caseId);
-
     }
 
     /**
@@ -181,22 +192,22 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
     /**
      * AI-VISION PORT: Internal byte-fetching for the LLM.
      */
-    @Override
-    public byte[] getAssetBytes(String assetId) {
-        log.info("Media Module: Providing bytes for AI analysis of asset {}", assetId);
-
-        var asset = assetRepository.findByAssetId(assetId)
-                .orElseThrow(() -> new RuntimeException("Asset not found for AI: " + assetId));
-
-        try (InputStream is = gridFsTemplate.getResource(
-                gridFsTemplate.findOne(new Query(Criteria.where("_id").is(asset.getGridFsId())))).getInputStream()) {
-
-            return is.readAllBytes();
-        } catch (Exception e) {
-            log.error("Failed to read bytes for AI Vision task", e);
-            throw new RuntimeException("AI binary fetch failed", e);
-        }
-    }
+   // @Override
+//    public byte[] getAssetBytes(String assetId) {
+//        log.info("Media Module: Providing bytes for AI analysis of asset {}", assetId);
+//
+//        var asset = assetRepository.findByAssetId(assetId)
+//                .orElseThrow(() -> new RuntimeException("Asset not found for AI: " + assetId));
+//
+//        try (InputStream is = gridFsTemplate.getResource(
+//                gridFsTemplate.findOne(new Query(Criteria.where("_id").is(asset.getGridFsId())))).getInputStream()) {
+//
+//            return is.readAllBytes();
+//        } catch (Exception e) {
+//            log.error("Failed to read bytes for AI Vision task", e);
+//            throw new RuntimeException("AI binary fetch failed", e);
+//        }
+//    }
 
 
     /**
@@ -217,6 +228,44 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         } catch (Exception e) {
             log.error("Failed to fetch binary for AI: {}", assetId);
             throw new RuntimeException("Binary fetch failed", e);
+        }
+    }
+
+    @Override
+    //μονο για νεο τεστ μπηκε για το νεο
+//    public AiMediaResource getAssetResource(String assetId) {
+//        var asset = assetRepository.findByAssetId(assetId)
+//                .orElseThrow(() -> new RuntimeException("Asset not found: " + assetId));
+//
+//        var gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(asset.getGridFsId())));
+//
+//        try {
+//            return new AiMediaResource(
+//                    gridFsTemplate.getResource(gridFsFile).getInputStream(),
+//                    asset.getFileName(),
+//                    asset.getMimeType(),
+//                    asset.getFileSize()
+//            );
+//        } catch (Exception e) {
+//            throw new RuntimeException("GridFS access error", e);
+//        }
+//    }
+
+    public AiMediaResource getAssetResource(String assetId) {
+        var asset = assetRepository.findByAssetId(assetId)
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+
+        var gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(new org.bson.types.ObjectId(asset.getGridFsId()))));
+
+        try {
+            return new AiMediaResource(
+                    gridFsTemplate.getResource(gridFsFile).getInputStream(),
+                    asset.getFileName(),
+                    asset.getMimeType(),
+                    asset.getFileSize()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("GridFS access error", e);
         }
     }
 
