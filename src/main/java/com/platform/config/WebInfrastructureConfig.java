@@ -14,9 +14,8 @@ public class WebInfrastructureConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // Enforce security context derivation on all business APIs
         registry.addInterceptor(securityInterceptor)
                 .addPathPatterns("/api/v1/**")
-                .excludePathPatterns("/api/v1/auth/**"); // Public Auth
+                .excludePathPatterns("/api/v1/auth/**", "/error"); // Πρόσθεσε το /error
     }
 }

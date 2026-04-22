@@ -56,16 +56,19 @@ public class SubmissionService {
         return report;
     }
 
-    private void triggerBackgroundProcesses(String caseId, Location loc, String userId) {
+    private void triggerBackgroundProcesses(String caseId, Location loc, String traceUserId) {
         CompletableFuture.runAsync(() -> {
+            // Log start of automated chain using the captured trace ID
+            identityClient.logSecurityEvent(traceUserId, "AUTOMATED_PROCESSING_START", caseId);
+
             try {
-                // FIX: Immediately update status to show work in progress
+                // Immediately update status to show work in progress
                 updateReportStatus(caseId, AccidentStatus.ENRICHING);
 
-                // FIX: Interface returns neutral EnrichmentResponse (No illegal casts to enrichment.domain)
+                // Interface returns neutral EnrichmentResponse (No illegal casts to enrichment.domain)
                 EnrichmentResponse response = contextClient.enrichAccidentContext(caseId, loc);
 
-                // FIX: Atomic retrieval and update for enrichment data
+                // Atomic retrieval and update for enrichment data
                 repository.findByCaseId(caseId).ifPresent(report -> {
 
                     EnrichedContext context = EnrichedContext.builder()
@@ -83,7 +86,7 @@ public class SubmissionService {
                     log.info("Accident report {} successfully enriched and moved to AI analysis.", caseId);
 
                     // Trigger subsequent AI module
-                    intelligenceClient.processAiAnalysis(caseId);
+                    intelligenceClient.processAiAnalysis(caseId, traceUserId);
                 });
 
             } catch (Exception e) {

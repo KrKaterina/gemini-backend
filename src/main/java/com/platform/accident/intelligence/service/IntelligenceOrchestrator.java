@@ -7,6 +7,7 @@ import com.platform.accident.intelligence.client.AiModelProvider;
 import com.platform.accident.intelligence.domain.AiIntelligenceResult;
 import com.platform.accident.intelligence.repository.AiAnalysisLog;
 import com.platform.accident.intelligence.repository.AiLogRepository;
+import com.platform.integration.identity.IdentityClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -24,6 +25,7 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
     private final IntelligenceCallbackClient callbackClient;
     private final AiLogRepository logRepository;
     private final AiProviderFactory providerFactory;
+    private final IdentityClient identityClient;
 
     @Value("${ai.provider}")
     private String providerName;
@@ -60,7 +62,10 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
 //            callbackClient.onAnalysisFailure(caseId, "AI_ERROR");
 //        }
 //    }
-    public void processAiAnalysis(String caseId) {
+    public void processAiAnalysis(String caseId, String traceUserId) {
+        identityClient.logSecurityEvent(traceUserId, "AUTOMATED_AI_PROCESSING", "Started analysis for " + caseId);
+
+        Instant startTime = Instant.now();
         try {
             AnalysisSourceData sourceData = reportViewer.getSourceDataForAnalysis(caseId)
                     .orElseThrow(() -> new IllegalStateException("Source not found for " + caseId));
@@ -84,10 +89,15 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
                     sourceData.assetIds() // 10
             );
 
+            saveAnalysisLog(caseId, model.getProviderName(), startTime, expertPrompt);
             callbackClient.onAnalysisComplete(caseId, result);
+
+            log.info("Successfully analyzed case {}. AI Severity identified as: {}", caseId, result.severityLevel());
         } catch (Exception e) {
-            log.error("Analysis Failed for case {}: {}", caseId, e.getMessage());
-            callbackClient.onAnalysisFailure(caseId, "AI_FAILURE");
+            log.error("AI Analysis critical failure for case {}: {}", caseId, e.getMessage());
+            callbackClient.onAnalysisFailure(caseId, "AI_PROVIDER_ERROR");
+
+            identityClient.logSecurityEvent(traceUserId, "AI_FAILURE", "Analysis failed: " + e.getMessage());
         }
     }
 
@@ -115,6 +125,7 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
         auditLog.setProcessedAt(Instant.now());
         auditLog.setDurationMs(Instant.now().toEpochMilli() - start.toEpochMilli());
         auditLog.setSentPrompt(prompt);
+        auditLog.setSuccessful(true);
         logRepository.save(auditLog);
     }
 }
