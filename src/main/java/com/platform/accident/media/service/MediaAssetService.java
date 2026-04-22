@@ -6,9 +6,11 @@ import com.platform.accident.media.exception.FileTooLargeException;
 import com.platform.accident.media.exception.InvalidMediaTypeException;
 import com.platform.accident.media.infrastructure.StorageProvider;
 import com.platform.accident.media.repository.MediaAssetRepository;
+import com.platform.accident.review.exception.UnauthorizedReviewException;
 import com.platform.accident.submission.integration.AiAssetData;
 import com.platform.accident.submission.integration.AiMediaClient;
 import com.platform.accident.submission.integration.MediaAssetClient;
+import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.media.MediaMetadataView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,6 +145,11 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
+    @Override
+    public byte[] getAssetBytes(String assetId) {
+        return new byte[0];
+    }
+
     // Fetches metadata for Dashboard visualization (Used by Module 4 Review)
 //    public List<MediaMetadataView> getAssetsByCase(String caseId) {
 //        return assetRepository.findAllByCaseId(caseId).stream()
@@ -269,4 +276,19 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
+    public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
+        MediaAsset asset = repository.findByAssetId(assetId)
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+
+        // Logic: Agent can see all; Customer can only see their own
+        boolean isAgent = context.roles().contains("ROLE_AGENT");
+        boolean isOwner = asset.getOwnerId().equals(context.userId());
+
+        if (!isAgent && !isOwner) {
+            identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", assetId);
+            throw new UnauthorizedReviewException("You do not have access to this asset.");
+        }
+
+        return asset;
+    }
 }

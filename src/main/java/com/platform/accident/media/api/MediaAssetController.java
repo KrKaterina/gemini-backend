@@ -1,6 +1,9 @@
 package com.platform.accident.media.api;
 
 import com.platform.accident.media.service.MediaAssetService;
+import com.platform.integration.identity.IdentityContext;
+import com.platform.integration.identity.SecurityContext;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -43,12 +46,26 @@ public class MediaAssetController {
     }
 
     @GetMapping("/{assetId}/stream")
-    public ResponseEntity<InputStreamResource> download(@PathVariable String assetId) throws Exception {
-        var assetMetadata = mediaService.getInternalMetadata(assetId);
-        var resource = mediaService.streamAssetContent(assetId);
+//    public ResponseEntity<InputStreamResource> download(@PathVariable String assetId) throws Exception {
+//        var assetMetadata = mediaService.getInternalMetadata(assetId);
+//        var resource = mediaService.streamAssetContent(assetId);
+//
+//        return ResponseEntity.ok()
+//                .contentType(MediaType.parseMediaType(assetMetadata.getMimeType()))
+//                .body(resource);
+//    }
+    public ResponseEntity<InputStreamResource> download(
+            @PathVariable String assetId,
+            HttpServletRequest httpRequest) throws Exception {
 
+        IdentityContext requester = SecurityContext.getRequired(httpRequest);
+
+        // ENFORCE AUTHORIZATION: Check permission and ownership at the service layer
+        var assetMetadata = mediaService.getAuthorizedAsset(assetId, requester);
+
+        var file = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(assetMetadata.getGridFsId())));
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(assetMetadata.getMimeType()))
-                .body(resource);
+                .body(new InputStreamResource(gridFsTemplate.getResource(file).getInputStream()));
     }
 }
