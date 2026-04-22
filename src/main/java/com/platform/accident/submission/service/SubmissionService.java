@@ -26,6 +26,9 @@ public class SubmissionService {
 
     @Transactional
     public AccidentReport submitAccident(AccidentReportInput input, String userId) {
+        // Audit before logic starts
+        identityClient.logSecurityEvent(userId, "REPORT_SUBMISSION_START", "Case in progress");
+
         validator.validateInput(input);
 
         String caseId = generateCaseId();
@@ -45,8 +48,9 @@ public class SubmissionService {
 
         mediaClient.linkAssetsToCase(caseId, input.assetIds());
 
-        triggerBackgroundProcesses(caseId, input.location());
-
+        // ASYNC PROPAGATION: Pass the context-derived userId explicitly
+        // to the background thread to avoid context loss.
+        triggerBackgroundProcesses(caseId, input.location(), userId);
         return report;
     }
 

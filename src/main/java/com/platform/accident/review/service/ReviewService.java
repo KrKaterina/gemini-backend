@@ -107,6 +107,12 @@ public class ReviewService {
      * Concurrency Safety: Pessimistic Lock Implementation
      */
     public void lockCase(String caseId, String agentId) {
+        // ENFORCE AUTHORIZATION: Consulting the Identity Oracle
+        if (!identityClient.hasPermission(agentId, "CASE_REVIEW_LOCK")) {
+            identityClient.logSecurityEvent(agentId, "AUTH_FAILURE", "Agent tried to lock without permission");
+            throw new UnauthorizedReviewException("Insufficient permissions.");
+        }
+
         ReviewCase review = reviewRepo.findByCaseId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Case not found"));
 
@@ -126,6 +132,11 @@ public class ReviewService {
      * Finalizes the case: pushes corrections to the core aggregate.
      */
     public void verifyCase(String caseId, String agentId, Map<String, Object> finalCorrections) {
+        // CAPABILITY CHECK
+        if (!identityClient.hasPermission(agentId, "CASE_REVIEW_VERIFY")) {
+            throw new UnauthorizedReviewException("Cannot verify case.");
+        }
+
         ReviewCase review = reviewRepo.findByCaseId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
 
