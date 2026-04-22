@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.Optional;
 
-
+@Component
 @RequiredArgsConstructor
 public class IdentityClientAdapter implements IdentityClient {
 

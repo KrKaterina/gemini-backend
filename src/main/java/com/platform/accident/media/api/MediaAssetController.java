@@ -28,7 +28,7 @@ public class MediaAssetController {
      * Entry point for mobile/web upload.
      * Happens BEFORE the accident report form is submitted.
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  /*  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> upload(@RequestParam("file") MultipartFile file) throws Exception {
 //        String assetId = mediaService.uploadAsset(
 //                file.getInputStream(),
@@ -43,6 +43,25 @@ public class MediaAssetController {
                 file.getContentType(),
                 file.getSize())
         );
+    }*/
+
+    @PostMapping
+    public ResponseEntity<Map<String, String>> upload(
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request) throws IOException {
+
+        // DERIVE IDENTITY: Παίρνουμε το userId από το έμπιστο context
+        IdentityContext ctx = SecurityContext.getRequired(request);
+
+        // Περνάμε το ctx.userId() στη μέθοδο
+        String assetId = mediaService.storePendingAsset(
+                file.getInputStream(),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                file.getSize(),
+                ctx.userId() // Προσθήκη παραμέτρου
+        );
+        return ResponseEntity.ok(Map.of("assetId", assetId));
     }
 
     @GetMapping("/{assetId}/stream")

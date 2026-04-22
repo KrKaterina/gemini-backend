@@ -122,6 +122,11 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
     public void onAnalysisFailure(String caseId, String errorCode) {
         log.error("AI failure for case {}. Error: {}", caseId, errorCode);
 
+        repository.findByCaseId(caseId).ifPresent(report -> {
+            report.setStatus(AccidentStatus.PENDING_REVIEW);
+            repository.save(report);
+        });
+
         // Ακόμα και σε αποτυχία του AI, προωθούμε την υπόθεση για χειροκίνητο έλεγχο
         reviewService.initializeReviewQueue(caseId);
     }

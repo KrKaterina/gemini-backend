@@ -74,7 +74,7 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
      * Called by Multipart Controller.
      * Binary goes directly to GridFS via InputStream.
      */
-    public String storePendingAsset(InputStream stream, String name, String type, long size) {
+   /* public String storePendingAsset(InputStream stream, String name, String type, long size) {
         String assetId = UUID.randomUUID().toString();
         var fileId = gridFsTemplate.store(stream, name, type);
 
@@ -82,6 +82,22 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
                 .assetId(assetId).gridFsId(fileId.toString())
                 .fileName(name).mimeType(type).fileSize(size)
                 .status(AssetStatus.PENDING).createdAt(Instant.now()).build());
+        return assetId;
+    }*/
+    public String storePendingAsset(InputStream stream, String name, String type, long size, String ownerId) {
+        String assetId = UUID.randomUUID().toString();
+        var fileId = gridFsTemplate.store(stream, name, type);
+
+        assetRepository.save(MediaAsset.builder()
+                .assetId(assetId)
+                .gridFsId(fileId.toString())
+                .ownerId(ownerId) // Αποθηκεύουμε τον ιδιοκτήτη!
+                .fileName(name)
+                .mimeType(type)
+                .fileSize(size)
+                .status(AssetStatus.PENDING)
+                .createdAt(Instant.now())
+                .build());
         return assetId;
     }
 
@@ -278,16 +294,34 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
-    public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
+    /*public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
         MediaAsset asset = assetRepository.findByAssetId(assetId)
                 .orElseThrow(() -> new AssetNotFoundException(assetId));
 
         // Logic: Agent can see all; Customer can only see their own
-        boolean isAgent = context.roles().contains("ROLE_AGENT");
+        boolean canViewAll = context.permissions().contains("ASSET_VIEW");
         boolean isOwner = asset.getOwnerId().equals(context.userId());
 
-        if (!isAgent && !isOwner) {
+        if (!canViewAll && !isOwner) {
             identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", assetId);
+            throw new UnauthorizedReviewException("You do not have access to this asset.");
+        }
+
+        return asset;
+    }*/
+    public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
+        MediaAsset asset = assetRepository.findByAssetId(assetId)
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+
+        // CHECK 1: Είναι Agent; (Permission check αντί για Role string)
+        boolean canViewAll = context.permissions().contains("ASSET_VIEW");
+
+        // CHECK 2: Είναι ο ιδιοκτήτης; (Προσθήκη Null-safe check)
+        // Χρησιμοποιούμε Objects.equals για να αποφύγουμε το NullPointerException αν το asset.getOwnerId() είναι null
+        boolean isOwner = java.util.Objects.equals(asset.getOwnerId(), context.userId());
+
+        if (!canViewAll && !isOwner) {
+            identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", "Asset: " + assetId);
             throw new UnauthorizedReviewException("You do not have access to this asset.");
         }
 

@@ -6,6 +6,7 @@ import com.platform.accident.review.exception.*;
 import com.platform.accident.review.integration.*;
 import com.platform.accident.review.repository.*;
 import com.platform.integration.identity.IdentityClient;
+import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.review.AccidentSnapshotView;
 import com.platform.integration.review.AiAnalysisView;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ import java.util.Optional;
 
 import com.platform.integration.review.AiAnalysisView;
 import com.platform.accident.review.api.dto.CaseFileResponse;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -53,18 +55,20 @@ public class ReviewService {
      * Entry point from Module 1: Sets up the dashboard entry
      */
     public void initializeReviewQueue(String caseId) {
-        if (reviewRepo.findByCaseId(caseId).isEmpty()) {
-            reviewRepo.save(ReviewCase.builder()
-                    .caseId(caseId)
-                    .status(ReviewStatus.PENDING)
-                    .createdAt(Instant.now())
-                    .build());
-        }
+        reviewRepo.findByCaseId(caseId).ifPresentOrElse(
+                existing -> log.info("Case {} already in queue", caseId),
+                () -> reviewRepo.save(ReviewCase.builder()
+                        .caseId(caseId)
+                        .status(ReviewStatus.PENDING)
+                        .createdAt(Instant.now())
+                        .build())
+        );
     }
 
     /**
      * Aggregator: Builds the dashboard DTO using type-safe records
      */
+    //it works - no authorization
 //    public CaseFileResponse getConsolidatedCaseFile(String caseId) {
 //        var review = reviewRepo.findByCaseId(caseId)
 //                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
@@ -72,56 +76,62 @@ public class ReviewService {
 //        var accident = viewerClient.getRawData(caseId)
 //                .orElseThrow(() -> new ResourceNotFoundException("Accident missing"));
 //
-//        // Εδώ παίρνουμε AiAnalysisView Record
-//        AiAnalysisView ai = aiClient.getAnalysisResult(caseId)
-//                .orElse(new AiAnalysisView("Incomplete", "LOW", java.util.List.of(), "N/A"));
+//        var ai = aiClient.getAnalysisResult(caseId)
+//                .orElse(new AiAnalysisView("Incomplete", "LOW", List.of(), "N/A"));
 //
-//        // Τώρα το 'ai' είναι AiAnalysisView και το 'CaseFileResponse' περιμένει AiAnalysisView.
-//        // Το compilation error θα εξαφανιστεί!
 //        return new CaseFileResponse(
 //                caseId,
 //                review.getStatus(),
 //                review.getAssignedAgentId(),
 //                accident,
-//                ai
+//                ai,
+//                review.getCorrections() // <--- Επιστρέφουμε τις διορθώσεις που κάναμε save στο Verify
 //        );
 //    }
-    public CaseFileResponse getConsolidatedCaseFile(String caseId) {
-        var review = reviewRepo.findByCaseId(caseId)
+    public CaseFileResponse getConsolidatedCaseFile(String caseId, IdentityContext agentCtx) {
+        // AUTHORIZATION:
+        if (!identityClient.hasPermission(agentCtx.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
+            identityClient.logSecurityEvent(agentCtx.userId(), "AUTH_FAILURE", "Unauthorized view attempt: " + caseId);
+            throw new UnauthorizedReviewException("Insufficient Permissions");
+        }
+
+        ReviewCase review = reviewRepo.findByCaseId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
 
-        var accident = viewerClient.getRawData(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Accident missing"));
+        AccidentSnapshotView snap = viewerClient.getRawData(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Accident record missing"));
 
-        var ai = aiClient.getAnalysisResult(caseId)
-                .orElse(new AiAnalysisView("Incomplete", "LOW", List.of(), "N/A"));
+        AiAnalysisView ai = aiClient.getAnalysisResult(caseId)
+                .orElse(new AiAnalysisView("Processing", "LOW", List.of(), "Waiting for results"));
 
         return new CaseFileResponse(
                 caseId,
                 review.getStatus(),
                 review.getAssignedAgentId(),
-                accident,
+                snap,
                 ai,
-                review.getCorrections() // <--- Επιστρέφουμε τις διορθώσεις που κάναμε save στο Verify
+                review.getCorrections()
         );
     }
 
     /**
      * Concurrency Safety: Pessimistic Lock Implementation
      */
-    public void lockCase(String caseId, String agentId) {
-        // ENFORCE AUTHORIZATION: Consulting the Identity Oracle
+    public void lockCase(String caseId, IdentityContext agentCtx) {
+        String agentId = agentCtx.userId();
+
         if (!identityClient.hasPermission(agentId, "CASE_REVIEW_LOCK")) {
-            identityClient.logSecurityEvent(agentId, "AUTH_FAILURE", "Agent tried to lock without permission");
+            identityClient.logSecurityEvent(agentId, "AUTH_FAILURE", "Unauthorized lock attempt");
             throw new UnauthorizedReviewException("Insufficient permissions.");
         }
 
         ReviewCase review = reviewRepo.findByCaseId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Case not found"));
 
+        // Concurrency Logic
         if (review.getAssignedAgentId() != null && !review.getAssignedAgentId().equals(agentId)) {
-            if (review.getLockedAt().isAfter(Instant.now().minus(30, ChronoUnit.MINUTES))) {
-                throw new CaseLockedException("Case locked by agent: " + review.getAssignedAgentId());
+            if (review.getLockedAt() != null && review.getLockedAt().isAfter(Instant.now().minus(LOCK_TIMEOUT_MINUTES, ChronoUnit.MINUTES))) {
+                throw new CaseLockedException("Case currently reviewed by " + review.getAssignedAgentId());
             }
         }
 
@@ -129,38 +139,42 @@ public class ReviewService {
         review.setLockedAt(Instant.now());
         review.setStatus(ReviewStatus.IN_PROGRESS);
         reviewRepo.save(review);
+
+        identityClient.logSecurityEvent(agentId, "CASE_LOCKED", caseId);
     }
 
     /**
      * Finalizes the case: pushes corrections to the core aggregate.
      */
-    public void verifyCase(String caseId, String agentId, Map<String, Object> finalCorrections) {
-        // CAPABILITY CHECK
+    @Transactional
+    public void verifyCase(String caseId, IdentityContext agentCtx, Map<String, Object> finalCorrections) {
+        String agentId = agentCtx.userId();
+
         if (!identityClient.hasPermission(agentId, "CASE_REVIEW_VERIFY")) {
-            throw new UnauthorizedReviewException("Cannot verify case.");
+            throw new UnauthorizedReviewException("Insufficient permissions to verify.");
         }
 
         ReviewCase review = reviewRepo.findByCaseId(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Review metadata missing"));
 
         if (!agentId.equals(review.getAssignedAgentId())) {
-            throw new UnauthorizedReviewException("You do not hold the lock for this case.");
+            throw new UnauthorizedReviewException("Action Forbidden: You do not hold the active lock.");
         }
 
-        finalCorrections.put("verifiedByAgent", agentId);
+        finalCorrections.put("verifiedBy", agentId);
         finalCorrections.put("verificationDate", Instant.now().toString());
 
-        // 1. Persist corrections locally in Review module
         review.setCorrections(finalCorrections);
         review.setStatus(ReviewStatus.VERIFIED);
         reviewRepo.save(review);
 
-        // 2. Synchronize with the Source of Truth (Submission Module)
         lifecycleClient.finalizeReport(caseId, finalCorrections);
         lifecycleClient.updateStatus(caseId, "PROCESSED");
 
-        logAudit(caseId, agentId, "VERIFIED", "Agent " + agentId + " finalized the case.");
+        logAudit(caseId, agentId, "VERIFIED", "Finalized");
+        identityClient.logSecurityEvent(agentId, "CASE_VERIFIED_SUCCESS", caseId);
     }
+
 
     private void logAudit(String caseId, String agentId, String action, String detail) {
         auditRepo.save(ReviewAuditEntry.builder()

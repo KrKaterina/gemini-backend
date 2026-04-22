@@ -1,11 +1,9 @@
-package com.platform.accident;
+package com.platform;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
 @SpringBootApplication
-@EnableMongoRepositories(basePackages = "com.platform.accident")
 public class AccidentApplication {
 
 	public static void main(String[] args) {
