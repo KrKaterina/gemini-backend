@@ -44,6 +44,8 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
 
     private final GridFsTemplate gridFsTemplate;
 
+    private final com.platform.integration.identity.IdentityClient identityClient; // ΠΡΟΣΘΗΚΗ
+
     /**
      * Initial Upload Phase (Invoked by Frontend Controller)
      */
@@ -277,7 +279,7 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
     }
 
     public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
-        MediaAsset asset = repository.findByAssetId(assetId)
+        MediaAsset asset = assetRepository.findByAssetId(assetId)
                 .orElseThrow(() -> new AssetNotFoundException(assetId));
 
         // Logic: Agent can see all; Customer can only see their own

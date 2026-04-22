@@ -58,4 +58,10 @@ public class IdentityManagementService {
         }
         userRepository.save(account);
     }
+
+    private void resetFailedLogins(UserAccount account) {
+        account.setFailedAttempts(0);
+        account.setLockoutExpiry(null);
+        userRepository.save(account);
+    }
 }
