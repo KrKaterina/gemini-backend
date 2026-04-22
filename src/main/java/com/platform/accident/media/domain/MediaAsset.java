@@ -18,6 +18,8 @@ public class MediaAsset {
     @Indexed
     private String caseId; // Reference to the Accident Report
 
+    private String ownerId;
+
     private String fileName;
     private String mimeType;
     private long fileSize;

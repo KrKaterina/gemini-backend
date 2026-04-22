@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.Optional;
 
-@Component
+
 @RequiredArgsConstructor
 public class IdentityClientAdapter implements IdentityClient {
 
@@ -44,6 +44,6 @@ public class IdentityClientAdapter implements IdentityClient {
     @Async // Constraint: Log without blocking security execution
     @Override
     public void logSecurityEvent(String userId, String action, String details) {
-        auditRepository.save(new IdentityEvent(null, userId, action, Instant.now(), details));
+        auditRepository.save(new IdentityEvent(null, userId, action, Instant.now(),"INTERNAL",details));
     }
 }

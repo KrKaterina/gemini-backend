@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Optional;
 
-@Component
 public class JwtTokenUtil {
 
     @Value("${platform.security.jwt.secret}")

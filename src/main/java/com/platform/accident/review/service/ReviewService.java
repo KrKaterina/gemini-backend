@@ -5,6 +5,7 @@ import com.platform.accident.review.domain.*;
 import com.platform.accident.review.exception.*;
 import com.platform.accident.review.integration.*;
 import com.platform.accident.review.repository.*;
+import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.review.AccidentSnapshotView;
 import com.platform.integration.review.AiAnalysisView;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,8 @@ public class ReviewService {
     private final ReportViewerClient viewerClient;
     private final AiInsightClient aiClient;
     private final ReportLifecycleClient lifecycleClient;
+
+    private final IdentityClient identityClient;
 
     private static final int LOCK_TIMEOUT_MINUTES = 30;
 

@@ -24,6 +24,8 @@ public class SubmissionService {
     private final ContextEnrichmentClient contextClient;
     private final IntelligenceOrchestrationClient intelligenceClient;
 
+    private final com.platform.integration.identity.IdentityClient identityClient;
+
     @Transactional
     public AccidentReport submitAccident(AccidentReportInput input, String userId) {
         // Audit before logic starts
@@ -54,7 +56,7 @@ public class SubmissionService {
         return report;
     }
 
-    private void triggerBackgroundProcesses(String caseId, Location loc) {
+    private void triggerBackgroundProcesses(String caseId, Location loc, String userId) {
         CompletableFuture.runAsync(() -> {
             try {
                 // FIX: Immediately update status to show work in progress
