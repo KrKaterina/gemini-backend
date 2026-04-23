@@ -8,7 +8,7 @@ import java.time.Instant;
 public record AccidentSnapshotView(
         String caseId,
         String description,
-        String reporterId,
+        String reporterName,
         double lat,
         double lng,
         String weather,

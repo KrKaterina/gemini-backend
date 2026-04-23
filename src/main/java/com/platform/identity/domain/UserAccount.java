@@ -24,4 +24,15 @@ public class UserAccount {
     private int failedAttempts;
     private Instant lockoutExpiry;
     private Instant lastLogin;
+
+    private Instant createdAt;
+    private UserProfile profile;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserProfile {
+        private String firstName;
+        private String lastName;
+    }
 }

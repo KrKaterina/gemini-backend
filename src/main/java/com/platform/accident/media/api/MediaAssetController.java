@@ -45,7 +45,7 @@ public class MediaAssetController {
         );
     }*/
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> upload(
             @RequestParam("file") MultipartFile file,
             HttpServletRequest request) throws IOException {
