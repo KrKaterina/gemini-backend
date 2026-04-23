@@ -1,8 +1,11 @@
 package com.platform.accident.review.api;
 
+import com.platform.accident.review.api.dto.ReviewQueueItem;
+import com.platform.accident.review.domain.ReviewStatus;
 import com.platform.accident.review.service.ReviewQueryService;
 import com.platform.accident.review.service.ReviewService;
 import com.platform.accident.review.api.dto.CaseFileResponse;
+import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.identity.SecurityContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +24,8 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     private final ReviewQueryService queryService;
+
+    private final IdentityClient identityClient;
 
     @GetMapping("/{caseId}")
 //    public ResponseEntity<CaseFileResponse> getCaseFile(@PathVariable String caseId) {
@@ -64,5 +69,21 @@ public class ReviewController {
     @GetMapping("/queue")
     public ResponseEntity<List<String>> getQueue() {
         return ResponseEntity.ok(queryService.getPendingReviewQueue());
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<List<ReviewQueueItem>> getPublicQueue(HttpServletRequest request) {
+        // Ensure agent permissions before showing the queue
+        var ctx = SecurityContext.getRequired(request);
+        if (!identityClient.hasPermission(ctx.userId(), "ACCIDENT_REPORT_VIEW_ALL")){
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(queryService.getAgentDashboard(ReviewStatus.PENDING, null));
+    }
+
+    @GetMapping("/my-workspace")
+    public ResponseEntity<List<ReviewQueueItem>> getMyWorkspace(HttpServletRequest request) {
+        var ctx = SecurityContext.getRequired(request);
+        return ResponseEntity.ok(queryService.getAgentDashboard(ReviewStatus.IN_PROGRESS, ctx.userId()));
     }
 }

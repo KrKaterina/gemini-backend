@@ -7,4 +7,8 @@ import java.util.List;
  */
 public interface MediaAssetClient {
     void linkAssetsToCase(String caseId, List<String> assetIds);
+
+    void verifyAssetsExist(List<String> assetIds);
+
+    List<MediaMetadataView> getAssetsByCase(String caseId);
 }

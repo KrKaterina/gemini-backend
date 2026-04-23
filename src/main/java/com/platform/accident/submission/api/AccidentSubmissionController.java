@@ -13,6 +13,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/accidents")
 @RequiredArgsConstructor
@@ -74,5 +76,15 @@ public class AccidentSubmissionController {
                 report.getStatus().name(),
                 report.getCreatedAt()
         ));
+    }
+
+    @GetMapping("/my-reports")
+    public ResponseEntity<List<AccidentReport>> getMyHistory(HttpServletRequest request) {
+        // DERIVE IDENTITY ONLY: We trust the Token-based userId
+        var ctx = SecurityContext.getRequired(request);
+
+        List<AccidentReport> reports = submissionService.getReportsByReporter(ctx.userId());
+
+        return ResponseEntity.ok(reports);
     }
 }

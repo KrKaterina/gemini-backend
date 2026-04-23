@@ -9,7 +9,10 @@ import com.platform.accident.media.repository.MediaAssetRepository;
 import com.platform.accident.review.exception.UnauthorizedReviewException;
 import com.platform.accident.submission.integration.AiAssetData;
 import com.platform.accident.submission.integration.AiMediaClient;
-import com.platform.accident.submission.integration.MediaAssetClient;
+//import com.platform.accident.submission.integration.MediaAssetClient;
+import com.platform.integration.identity.IdentityClient;
+import com.platform.integration.media.MediaAssetClient;
+
 import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.media.MediaMetadataView;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,9 @@ import org.springframework.stereotype.Service;
 
 import com.platform.accident.submission.integration.AiMediaClient;
 import com.platform.accident.submission.integration.AiMediaResource;
+
+import com.platform.integration.media.MediaAssetClient;
+import com.platform.integration.media.MediaMetadataView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,7 +50,7 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
 
     private final GridFsTemplate gridFsTemplate;
 
-    private final com.platform.integration.identity.IdentityClient identityClient; // ΠΡΟΣΘΗΚΗ
+    private final IdentityClient identityClient; // ΠΡΟΣΘΗΚΗ
 
     /**
      * Initial Upload Phase (Invoked by Frontend Controller)
@@ -129,7 +135,8 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
 //
 //    }
     public void linkAssetsToCase(String caseId, List<String> assetIds) {
-        List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
+        //List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
+        var assets = assetRepository.findAllByAssetIdIn(assetIds);
         assets.forEach(asset -> {
             asset.setCaseId(caseId);
             asset.setStatus(com.platform.accident.media.domain.AssetStatus.LINKED);
@@ -163,10 +170,10 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
-    @Override
-    public byte[] getAssetBytes(String assetId) {
-        return new byte[0];
-    }
+//    @Override
+//    public byte[] getAssetBytes(String assetId) {
+//        return new byte[0];
+//    }
 
     // Fetches metadata for Dashboard visualization (Used by Module 4 Review)
 //    public List<MediaMetadataView> getAssetsByCase(String caseId) {
@@ -217,7 +224,7 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
     /**
      * AI-VISION PORT: Internal byte-fetching for the LLM.
      */
-   // @Override
+    // @Override
 //    public byte[] getAssetBytes(String assetId) {
 //        log.info("Media Module: Providing bytes for AI analysis of asset {}", assetId);
 //

@@ -4,12 +4,15 @@ import com.platform.accident.submission.domain.*;
 import com.platform.accident.submission.exception.AccidentNotFoundException;
 import com.platform.accident.submission.integration.*;
 import com.platform.accident.submission.repository.AccidentRepository;
+import com.platform.integration.identity.IdentityClient;
+import com.platform.integration.media.MediaAssetClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -24,7 +27,7 @@ public class SubmissionService {
     private final ContextEnrichmentClient contextClient;
     private final IntelligenceOrchestrationClient intelligenceClient;
 
-    private final com.platform.integration.identity.IdentityClient identityClient;
+    private final IdentityClient identityClient;
 
     @Transactional
     public AccidentReport submitAccident(AccidentReportInput input, String userId) {
@@ -108,5 +111,9 @@ public class SubmissionService {
 
     public AccidentReport getReport(String caseId) {
         return repository.findByCaseId(caseId).orElseThrow(() -> new AccidentNotFoundException(caseId));
+    }
+
+    public List<AccidentReport> getReportsByReporter(String reporterId) {
+        return repository.findByReporterId(reporterId);
     }
 }

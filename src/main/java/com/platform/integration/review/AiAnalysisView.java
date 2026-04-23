@@ -10,4 +10,8 @@ public record AiAnalysisView(
         String severityLevel,
         List<String> suggestedNextSteps,
         String rawAiOutput
-) {}
+) {
+    public static AiAnalysisView empty() {
+        return new AiAnalysisView("Processing not completed", "N/A", java.util.List.of(), "System trace active");
+    }
+}
