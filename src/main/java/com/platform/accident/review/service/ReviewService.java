@@ -1,10 +1,15 @@
 package com.platform.accident.review.service;
 
 import com.platform.accident.review.api.dto.CaseFileResponse;
+import com.platform.accident.review.api.dto.ConsolidatedCaseFile;
 import com.platform.accident.review.domain.*;
 import com.platform.accident.review.exception.*;
 import com.platform.accident.review.integration.*;
 import com.platform.accident.review.repository.*;
+//import com.platform.accident.submission.integration.MediaAssetClient;
+import com.platform.integration.media.MediaAssetClient;
+
+import com.platform.identity.exception.UnauthorizedException;
 import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.review.AccidentSnapshotView;
@@ -23,6 +28,7 @@ import com.platform.accident.review.integration.ReportLifecycleClient;
 import com.platform.accident.review.exception.CaseLockedException;
 import com.platform.integration.review.AccidentSnapshotView;
 import com.platform.integration.review.AiAnalysisView;
+import com.platform.integration.media.MediaAssetClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,13 +47,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class ReviewService {
+
+    // Internal Repositories
     private final ReviewCaseRepository reviewRepo;
-    private final ReviewAuditRepository auditRepo; // Now valid
+    private final ReviewAuditRepository auditRepo;
+
+    // Cross-Module Ports (The Bridges)
     private final ReportViewerClient viewerClient;
     private final AiInsightClient aiClient;
     private final ReportLifecycleClient lifecycleClient;
-
     private final IdentityClient identityClient;
+    private final MediaAssetClient mediaClient;
 
     private static final int LOCK_TIMEOUT_MINUTES = 30;
 
@@ -90,10 +100,7 @@ public class ReviewService {
 //    }
     public CaseFileResponse getConsolidatedCaseFile(String caseId, IdentityContext agentCtx) {
         // AUTHORIZATION:
-        if (!identityClient.hasPermission(agentCtx.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
-            identityClient.logSecurityEvent(agentCtx.userId(), "AUTH_FAILURE", "Unauthorized view attempt: " + caseId);
-            throw new UnauthorizedReviewException("Insufficient Permissions");
-        }
+        verifyViewPermission(agentCtx, caseId);
 
         ReviewCase review = reviewRepo.findByCaseId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
@@ -184,5 +191,64 @@ public class ReviewService {
                 .detail(detail)
                 .timestamp(Instant.now())
                 .build());
+    }
+
+//    public ConsolidatedCaseFile getFullDashboardView(String caseId, IdentityContext agent) {
+//        if (!identityClient.hasPermission(agent.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
+//            throw new UnauthorizedException();
+//        }
+//
+//        // 1. Module 1: Get raw submission data
+//        var raw = reportViewer.getRawData(caseId).orElseThrow();
+//
+//        // 2. Module 3: Get Gemini AI insights
+//        var ai = aiInsight.getAnalysisResult(caseId).orElse(AiAnalysisView.empty());
+//
+//        // 3. Module 5: Get authenticated asset links for the UI player
+//        var evidence = mediaAssetClient.getAssetsByCase(caseId);
+//
+//        // 4. Local Review State
+//        var review = reviewRepo.findByCaseId(caseId).orElseThrow();
+//
+//        return new ConsolidatedCaseFile(
+//                caseId,
+//                review.getStatus().name(),
+//                raw,
+//                ai,
+//                evidence,
+//                review.getStatus().name(),
+//                review.getAssignedAgentId()
+//        );
+//    }
+    public ConsolidatedCaseFile getFullDashboardView(String caseId, IdentityContext agent) {
+        verifyViewPermission(agent, caseId);
+
+        AccidentSnapshotView raw = viewerClient.getRawData(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Source report missing"));
+
+        AiAnalysisView ai = aiClient.getAnalysisResult(caseId).orElse(AiAnalysisView.empty());
+
+        // Fetch real URLs via Media Port (Fixes 'blind dashboard' gap)
+        var evidence = mediaClient.getAssetsByCase(caseId);
+
+        ReviewCase review = reviewRepo.findByCaseId(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review status missing"));
+
+        return new ConsolidatedCaseFile(
+                caseId,
+                review.getStatus().name(),
+                raw,
+                ai,
+                evidence,
+                review.getStatus().name(),
+                review.getAssignedAgentId()
+        );
+    }
+
+    private void verifyViewPermission(IdentityContext context, String caseId) {
+        if (!identityClient.hasPermission(context.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
+            identityClient.logSecurityEvent(context.userId(), "AUTH_FAILURE", "Unauthorized access to " + caseId);
+            throw new UnauthorizedException();
+        }
     }
 }

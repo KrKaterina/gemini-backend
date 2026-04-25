@@ -6,6 +6,8 @@ import com.platform.accident.submission.integration.*;
 import com.platform.accident.submission.repository.AccidentRepository;
 import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.media.MediaAssetClient;
+import com.platform.integration.policy.EligibilityStatus;
+import com.platform.integration.policy.PolicyPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,10 +31,25 @@ public class SubmissionService {
 
     private final IdentityClient identityClient;
 
+    private final PolicyPort policyPort; // New Bridge to Module 7
+
+
     @Transactional
     public AccidentReport submitAccident(AccidentReportInput input, String userId) {
         // Audit before logic starts
         identityClient.logSecurityEvent(userId, "REPORT_SUBMISSION_START", "Case in progress");
+
+        // NEW ENFORCEMENT: Point-of-entry block
+        EligibilityStatus coverage = policyPort.checkEligibility(userId, input.occurrenceTime());
+
+        if (!coverage.eligible()) {
+            // Failure Trace
+            identityClient.logSecurityEvent(userId, "REJECTED_REPORT_INELIGIBLE", coverage.reasonCode());
+            throw new IneligibleReportingException("Accident date not covered by an active policy: " + coverage.reasonCode());
+        }
+
+        // Proceed to generate report only if covered
+        String caseId = generateCaseId();
 
         validator.validateInput(input);
 
