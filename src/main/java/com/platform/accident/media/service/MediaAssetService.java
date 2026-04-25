@@ -224,7 +224,7 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
     /**
      * AI-VISION PORT: Internal byte-fetching for the LLM.
      */
-    // @Override
+   // @Override
 //    public byte[] getAssetBytes(String assetId) {
 //        log.info("Media Module: Providing bytes for AI analysis of asset {}", assetId);
 //
