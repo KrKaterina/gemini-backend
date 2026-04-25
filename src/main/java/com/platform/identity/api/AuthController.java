@@ -39,12 +39,6 @@ public class AuthController {
         var ctx = com.platform.integration.identity.SecurityContext.getRequired(request);
 
         // Logic: Fetch additional metadata from Identity Module database
-//        return userRepository.findById(ctx.userId())
-//                .map(u -> ResponseEntity.ok(new UserDashboardProfile(
-//                        u.getUserId(), u.getUsername(), u.getRoles(),
-//                        u.getProfile().getFirstName() + " " + u.getProfile().getLastName()
-//                )))
-//                .orElse(ResponseEntity.status(401).build());
         return userRepository.findById(ctx.userId())
                 .map(u -> {
                     // Safe check αν το profile είναι null

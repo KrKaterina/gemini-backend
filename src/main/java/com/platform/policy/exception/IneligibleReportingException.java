@@ -5,7 +5,5 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.FORBIDDEN)
 public class IneligibleReportingException extends RuntimeException {
-    public IneligibleReportingException(String message) {
-        super(message);
-    }
+    public IneligibleReportingException(String message) { super(message); }
 }

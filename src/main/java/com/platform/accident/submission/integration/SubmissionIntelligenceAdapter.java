@@ -27,22 +27,6 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
      * Maps the Submission domain to the neutral AnalysisSourceData DTO.
      */
     @Override
-    //σχολιο μονο για να κανω τεστ το νεο
-//    public Optional<AnalysisSourceData> getSourceDataForAnalysis(String caseId) {
-//        return repository.findByCaseId(caseId)
-//                .map(report -> new AnalysisSourceData(
-//                        report.getRawDescription(),                                  // 1
-//                        report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A", // 2
-//                        report.getContextData() != null ? report.getContextData().roadType() : "N/A",      // 3
-//                        report.getContextData() != null ? report.getContextData().neighborhood() : "Unknown", // 4
-//                        report.getContextData() != null && report.getContextData().daylight(), // 5 (isDaylight boolean)
-//                        report.getLocation().lat(),                                  // 6
-//                        report.getLocation().lng(),                                  // 7
-//                        report.getOccurrenceTime(),                                  // 8
-//                        report.getCaseId(),                                          // 9
-//                        report.getAssetIds() != null ? report.getAssetIds() : java.util.List.of() // 10
-//                ));
-//    }
     public Optional<AnalysisSourceData> getSourceDataForAnalysis(String caseId) {
         return repository.findByCaseId(caseId).map(report -> {
             var ctx = report.getContextData();
@@ -66,30 +50,6 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
      * Persists the AI results back into the main Accident aggregate.
      */
     @Override
-//    public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
-//        repository.findByCaseId(caseId).ifPresent(report -> {
-//            java.util.Map<String, Object> finalData = new java.util.HashMap<>();
-//
-//            // FIX: Use keys that match the AiIntelligenceResult record fields
-//            finalData.put("summary", aiResult.rawAiOutput()); // Maps to summary()
-//            finalData.put("severityLevel", aiResult.severityLevel()); // Maps to severityLevel()
-//            finalData.put("entities", aiResult.entities());
-//            finalData.put("suggestedNextSteps", aiResult.suggestedNextSteps());
-//            finalData.put("analysisDate", java.time.Instant.now());
-//
-//            report.setAiAnalysis(finalData);
-//
-//            if ("FATAL".equals(aiResult.severityLevel()) || "HIGH".equals(aiResult.severityLevel())) {
-//                report.setStatus(AccidentStatus.PENDING_REVIEW);
-//            } else {
-//                report.setStatus(AccidentStatus.PROCESSED);
-//            }
-//
-//            repository.save(report);
-//            reviewOrchestrator.initializeReviewQueue(caseId);
-//
-//        });
-//    }
     public void onAnalysisComplete(String caseId, AiIntelligenceResult aiResult) {
         repository.findByCaseId(caseId).ifPresent(report -> {
             Map<String, Object> aiMap = new HashMap<>();
@@ -112,13 +72,6 @@ public class SubmissionIntelligenceAdapter implements ReportViewerClient, Intell
 
 
     @Override
-    /*public void onAnalysisFailure(String caseId, String errorCode) {
-        log.error("AI Analysis failed for case {}. Error code: {}", caseId, errorCode);
-        repository.findByCaseId(caseId).ifPresent(report -> {
-            report.setStatus(AccidentStatus.PENDING_REVIEW); // Allow agent to process manually
-            repository.save(report);
-        });
-    }*/
     public void onAnalysisFailure(String caseId, String errorCode) {
         log.error("AI failure for case {}. Error: {}", caseId, errorCode);
 

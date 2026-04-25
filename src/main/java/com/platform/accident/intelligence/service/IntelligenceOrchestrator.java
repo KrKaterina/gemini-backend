@@ -1,6 +1,5 @@
 package com.platform.accident.intelligence.service;
 
-
 import com.platform.accident.intelligence.client.factory.AiProviderFactory;
 import com.platform.accident.submission.integration.*;
 import com.platform.accident.intelligence.client.AiModelProvider;
@@ -14,7 +13,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import java.time.Instant;
-
 
 @Slf4j
 @Service
@@ -36,32 +34,6 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
      */
     @Async("intelligenceTaskExecutor")
     @Override
-//    public void processAiAnalysis(String caseId) {
-//        try {
-//            // 1. Παίρνουμε το εμπλουτισμένο πακέτο
-//            AnalysisSourceData sourceData = reportViewer.getSourceDataForAnalysis(caseId)
-//                    .orElseThrow(() -> new IllegalStateException("Source not found"));
-//
-//            // 2. Φτιάχνουμε το κείμενο
-//            String prompt = constructConsolidatedPrompt(sourceData);
-//
-//            // 3. Επιλέγουμε τον Provider
-//            AiModelProvider aiModelProvider = providerFactory.getProvider(providerName);
-//
-//            // 4. Στέλνουμε ΤΑ ΠΑΝΤΑ
-//            Instant startTime = Instant.now();
-//            AiIntelligenceResult aiResult = aiModelProvider.analyzeIncident(prompt);
-//
-//            // 5. Καταγραφή & CallbacksaveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime);
-//            callbackClient.onAnalysisComplete(caseId, aiResult);
-//            saveAnalysisLog(caseId, aiModelProvider.getProviderName(), startTime, prompt);
-//            log.info("AI RESULT for case {} -> severity={}", caseId, aiResult.severityLevel());
-//
-//        } catch (Exception e) {
-//            log.error("Analysis failed: {}", e.getMessage());
-//            callbackClient.onAnalysisFailure(caseId, "AI_ERROR");
-//        }
-//    }
     public void processAiAnalysis(String caseId, String traceUserId) {
         identityClient.logSecurityEvent(traceUserId, "AUTOMATED_AI_PROCESSING", "Started analysis for " + caseId);
 

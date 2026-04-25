@@ -1,6 +1,5 @@
 package com.platform.accident.enrichment.util;
 
-
 public class GeoHashUtils {
     private static final String BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 

@@ -38,20 +38,6 @@ public class SubmissionLifecycleAdapter implements ReportLifecycleClient {
     }
 
     @Override
-//    public void updateStatus(String caseId, String status) {
-//        log.info("Transitioning case {} to terminal status: {}", caseId, status);
-//
-//        repository.findByCaseId(caseId).ifPresent(report -> {
-//            try {
-//                // Μετατροπή String status σε AccidentStatus Enum
-//                AccidentStatus nextStatus = AccidentStatus.valueOf(status);
-//                report.setStatus(nextStatus);
-//                repository.save(report);
-//            } catch (IllegalArgumentException e) {
-//                log.error("Invalid status transition requested for {}: {}", caseId, status);
-//            }
-//        });
-//    }
     public void updateStatus(String caseId, String status) {
         repository.findByCaseId(caseId).ifPresent(report -> {
             log.info("Requesting status change to {} for case {}", status, caseId);

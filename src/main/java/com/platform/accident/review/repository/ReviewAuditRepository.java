@@ -7,7 +7,5 @@ import java.util.List;
 
 @Repository
 public interface ReviewAuditRepository extends MongoRepository<ReviewAuditEntry, String> {
-
-    // Εδώ είναι η σωστή θέση για αυτή τη μέθοδο
     List<ReviewAuditEntry> findByCaseId(String caseId);
 }

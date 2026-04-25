@@ -10,6 +10,7 @@ import com.platform.accident.review.exception.UnauthorizedReviewException;
 import com.platform.accident.submission.integration.AiAssetData;
 import com.platform.accident.submission.integration.AiMediaClient;
 //import com.platform.accident.submission.integration.MediaAssetClient;
+import com.platform.identity.exception.UnauthorizedException;
 import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.media.MediaAssetClient;
 
@@ -80,16 +81,6 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
      * Called by Multipart Controller.
      * Binary goes directly to GridFS via InputStream.
      */
-   /* public String storePendingAsset(InputStream stream, String name, String type, long size) {
-        String assetId = UUID.randomUUID().toString();
-        var fileId = gridFsTemplate.store(stream, name, type);
-
-        assetRepository.save(MediaAsset.builder()
-                .assetId(assetId).gridFsId(fileId.toString())
-                .fileName(name).mimeType(type).fileSize(size)
-                .status(AssetStatus.PENDING).createdAt(Instant.now()).build());
-        return assetId;
-    }*/
     public String storePendingAsset(InputStream stream, String name, String type, long size, String ownerId) {
         String assetId = UUID.randomUUID().toString();
         var fileId = gridFsTemplate.store(stream, name, type);
@@ -112,28 +103,6 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
      * Links temporary uploads to the final Accident Report case.
      */
     @Override
-//    public void linkAssetsToCase(String caseId, List<String> assetIds) {
-//        log.info("Linking {} assets to Case {}", assetIds.size(), caseId);
-//
-////        List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
-////        assets.forEach(asset -> {
-////            asset.setCaseId(caseId);
-////            asset.setStatus(AssetStatus.LINKED);
-////        });
-////
-////        assetRepository.saveAll(assets);
-//        if (assetIds == null || assetIds.isEmpty()) return;
-//
-//        var assets = assetRepository.findAllByAssetIdIn(assetIds);
-//        assets.forEach(asset -> {
-//            asset.setCaseId(caseId);
-//            asset.setStatus(AssetStatus.LINKED);
-//        });
-//        assetRepository.saveAll(assets);
-//
-//        log.info("Hand-off Complete: Linked {} assets to case {}", assetIds.size(), caseId);
-//
-//    }
     public void linkAssetsToCase(String caseId, List<String> assetIds) {
         //List<MediaAsset> assets = assetRepository.findAllByAssetIdIn(assetIds);
         var assets = assetRepository.findAllByAssetIdIn(assetIds);
@@ -158,10 +127,6 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
 
     @Override
     public void verifyAssetsExist(List<String> assetIds) {
-//        long found = assetRepository.countByAssetIdInAndStatus(assetIds, AssetStatus.PENDING);
-//        if (found != assetIds.size()) {
-//            throw new IllegalArgumentException("One or more asset IDs are invalid or already processed");
-//        }
         if (assetIds == null || assetIds.isEmpty()) return;
 
         long count = assetRepository.countByAssetIdInAndStatus(assetIds, AssetStatus.PENDING);
@@ -170,18 +135,6 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
-//    @Override
-//    public byte[] getAssetBytes(String assetId) {
-//        return new byte[0];
-//    }
-
-    // Fetches metadata for Dashboard visualization (Used by Module 4 Review)
-//    public List<MediaMetadataView> getAssetsByCase(String caseId) {
-//        return assetRepository.findAllByCaseId(caseId).stream()
-//                .map(a -> new MediaMetadataView(a.getAssetId(), a.getFileName(),
-//                        a.getMimeType(), a.getFileSize(), "/api/v1/assets/" + a.getAssetId() + "/raw"))
-//                .toList();
-//    }
     /**
      * ALIGNED PATHING: Synchronized with MediaController @GetMapping.
      */
@@ -264,25 +217,6 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
     }
 
     @Override
-    //μονο για νεο τεστ μπηκε για το νεο
-//    public AiMediaResource getAssetResource(String assetId) {
-//        var asset = assetRepository.findByAssetId(assetId)
-//                .orElseThrow(() -> new RuntimeException("Asset not found: " + assetId));
-//
-//        var gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(asset.getGridFsId())));
-//
-//        try {
-//            return new AiMediaResource(
-//                    gridFsTemplate.getResource(gridFsFile).getInputStream(),
-//                    asset.getFileName(),
-//                    asset.getMimeType(),
-//                    asset.getFileSize()
-//            );
-//        } catch (Exception e) {
-//            throw new RuntimeException("GridFS access error", e);
-//        }
-//    }
-
     public AiMediaResource getAssetResource(String assetId) {
         var asset = assetRepository.findByAssetId(assetId)
                 .orElseThrow(() -> new AssetNotFoundException(assetId));
@@ -301,37 +235,32 @@ public class MediaAssetService implements MediaAssetClient, AiMediaClient {
         }
     }
 
-    /*public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
-        MediaAsset asset = assetRepository.findByAssetId(assetId)
-                .orElseThrow(() -> new AssetNotFoundException(assetId));
-
-        // Logic: Agent can see all; Customer can only see their own
-        boolean canViewAll = context.permissions().contains("ASSET_VIEW");
-        boolean isOwner = asset.getOwnerId().equals(context.userId());
-
-        if (!canViewAll && !isOwner) {
-            identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", assetId);
-            throw new UnauthorizedReviewException("You do not have access to this asset.");
-        }
-
-        return asset;
-    }*/
     public MediaAsset getAuthorizedAsset(String assetId, IdentityContext context) {
         MediaAsset asset = assetRepository.findByAssetId(assetId)
                 .orElseThrow(() -> new AssetNotFoundException(assetId));
 
-        // CHECK 1: Είναι Agent; (Permission check αντί για Role string)
-        boolean canViewAll = context.permissions().contains("ASSET_VIEW");
-
-        // CHECK 2: Είναι ο ιδιοκτήτης; (Προσθήκη Null-safe check)
-        // Χρησιμοποιούμε Objects.equals για να αποφύγουμε το NullPointerException αν το asset.getOwnerId() είναι null
-        boolean isOwner = java.util.Objects.equals(asset.getOwnerId(), context.userId());
-
-        if (!canViewAll && !isOwner) {
-            identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", "Asset: " + assetId);
-            throw new UnauthorizedReviewException("You do not have access to this asset.");
+        // Αν το assetId είναι παλιό και δεν έχει ownerId στη βάση
+        if (asset.getOwnerId() == null) {
+            // Επιτρέπουμε την πρόσβαση μόνο σε Agents/Admins για ορφανά αρχεία
+            if (identityClient.hasPermission(context.userId(), "ASSET_VIEW")) return asset;
+            throw new UnauthorizedException("Αυτό το αρχείο δεν έχει ιδιοκτήτη.");
         }
 
-        return asset;
+        // 1. Ελέγχουμε αν ο χρήστης είναι ο ιδιοκτήτης
+        boolean isOwner = asset.getOwnerId().equals(context.userId());
+
+        // 2. Ελέγχουμε αν ο χρήστης έχει δικαίωμα ASSET_VIEW
+        // Καλούμε το Identity Module μέσω του Port
+        boolean hasViewPermission = identityClient.hasPermission(context.userId(), "ASSET_VIEW");
+
+        if (isOwner || hasViewPermission) {
+            // Καταγραφή επιτυχούς πρόσβασης για audit (PII Compliance)
+            identityClient.logSecurityEvent(context.userId(), "ASSET_VIEW_SUCCESS", "Viewed asset: " + assetId);
+            return asset;
+        }
+
+        // Αν δεν είναι τίποτα από τα δύο, κόβουμε την πρόσβαση
+        identityClient.logSecurityEvent(context.userId(), "UNAUTHORIZED_MEDIA_ACCESS", "Denied asset: " + assetId);
+        throw new UnauthorizedException("Δεν έχετε δικαίωμα πρόσβασης σε αυτό το αρχείο.");
     }
 }

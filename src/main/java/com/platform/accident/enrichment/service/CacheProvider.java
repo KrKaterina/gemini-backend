@@ -1,7 +1,6 @@
 package com.platform.accident.enrichment.service;
 
 import com.platform.accident.enrichment.repository.ContextCacheRepository;
-import com.platform.accident.enrichment.repository.ExternalContextCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.Instant;

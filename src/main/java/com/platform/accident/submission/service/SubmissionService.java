@@ -8,6 +8,7 @@ import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.media.MediaAssetClient;
 import com.platform.integration.policy.EligibilityStatus;
 import com.platform.integration.policy.PolicyPort;
+import com.platform.policy.exception.IneligibleReportingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,8 +53,6 @@ public class SubmissionService {
         String caseId = generateCaseId();
 
         validator.validateInput(input);
-
-        String caseId = generateCaseId();
 
         AccidentReport report = AccidentReport.builder()
                 .caseId(caseId)
