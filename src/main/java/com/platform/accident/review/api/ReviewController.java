@@ -28,17 +28,12 @@ public class ReviewController {
     private final IdentityClient identityClient;
 
     @GetMapping("/{caseId}")
-//    public ResponseEntity<CaseFileResponse> getCaseFile(@PathVariable String caseId) {
-//        return ResponseEntity.ok(reviewService.getConsolidatedCaseFile(caseId));
-//    }
     public ResponseEntity<CaseFileResponse> getCaseFile(
             @PathVariable String caseId,
             HttpServletRequest httpRequest) {
 
-        // Παίρνουμε το έμπιστο context από τον Interceptor
         IdentityContext user = SecurityContext.getRequired(httpRequest);
 
-        // Το στέλνουμε στο Service για να γίνει ο έλεγχος permissions
         return ResponseEntity.ok(reviewService.getConsolidatedCaseFile(caseId, user));
     }
 

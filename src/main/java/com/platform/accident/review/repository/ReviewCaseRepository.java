@@ -15,7 +15,6 @@ public interface ReviewCaseRepository extends MongoRepository<ReviewCase, String
 
     Optional<ReviewCase> findByCaseId(String caseId);
 
-    // Βρίσκει υποθέσεις όπου το κλείδωμα έχει λήξει
     List<ReviewCase> findByLockedAtBeforeAndStatus(Instant expiryTime, com.platform.accident.review.domain.ReviewStatus status);
 
     List<ReviewCase> findByStatus(ReviewStatus status);

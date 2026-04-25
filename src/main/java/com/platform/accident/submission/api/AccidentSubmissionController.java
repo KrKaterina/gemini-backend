@@ -22,28 +22,6 @@ public class AccidentSubmissionController {
 
     private final SubmissionService submissionService;
 
-//    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    public ResponseEntity<AccidentSubmissionResponse> submitReport(
-//            @RequestPart("request") AccidentReportRequest request, // To JSON μέρος
-//            @RequestHeader("X-User-Id") String userId) {
-//
-//        // Map DTO to internal service record
-//        var input = new com.platform.accident.submission.service.AccidentReportInput(
-//                request.occurrenceTime(),
-//                request.location(),
-//                request.description(),
-//                request.assetIds()
-//        );
-//
-//        AccidentReport report = submissionService.submitAccident(input, userId);
-//
-//        return ResponseEntity.status(HttpStatus.ACCEPTED).body(new AccidentSubmissionResponse(
-//                report.getCaseId(),
-//                report.getStatus().name(),
-//                report.getCreatedAt()
-//        ));
-//    }
-
     @GetMapping("/{caseId}")
     public ResponseEntity<AccidentReport> getReport(@PathVariable String caseId) {
         return ResponseEntity.ok(submissionService.getReport(caseId));
@@ -55,7 +33,6 @@ public class AccidentSubmissionController {
             HttpServletRequest httpRequest) {
 
         // 1. ΑΣΦΑΛΗΣ ΕΞΑΓΩΓΗ ΤΑΥΤΟΤΗΤΑΣ:
-        // Η ταυτότητα πηγάζει από το κρυπτογραφημένο Token και όχι από Headers.
         IdentityContext user = SecurityContext.getRequired(httpRequest);
 
         // 2. ΜΕΤΑΤΡΟΠΗ ΣΕ INTERNAL INPUT RECORD:

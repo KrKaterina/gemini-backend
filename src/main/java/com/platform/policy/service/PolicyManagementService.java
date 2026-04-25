@@ -52,15 +52,6 @@ public class PolicyManagementService implements PolicyPort {
      * Επιστρέφει πλήρες EligibilityStatus για να ξέρει το UI γιατί απορρίφθηκε η αίτηση.
      */
     @Override
-//    public EligibilityStatus checkEligibility(String userId, Instant occurrenceTime) {
-//        return repository.findAllByUserId(userId).stream()
-//                .filter(p -> p.getStatus() == DeclarationStatus.ACTIVE)
-//                .filter(p -> !occurrenceTime.isBefore(p.getValidFrom()) &&
-//                        !occurrenceTime.isAfter(p.getVerifiedExpirationDate()))
-//                .findFirst()
-//                .map(p -> new EligibilityStatus(true, "VALID", p.getPolicyNumber(), p.getProviderCode()))
-//                .orElse(EligibilityStatus.denied("NO_ACTIVE_POLICY_FOR_DATE"));
-//    }
     public EligibilityStatus checkEligibility(String userId, Instant occurrenceTime) {
         return repository.findAllByUserId(userId).stream()
                 .filter(p -> p.getStatus() == DeclarationStatus.ACTIVE)

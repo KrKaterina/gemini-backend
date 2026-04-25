@@ -13,8 +13,8 @@ import java.util.Map;
 
 @Data
 @Builder
-@NoArgsConstructor // Added for Jackson/MongoDB
-@AllArgsConstructor // Added for Lombok @Builder compatibility
+@NoArgsConstructor
+@AllArgsConstructor
 @Document(collection = "accidents")
 public class AccidentReport {
     @Id
@@ -31,11 +31,9 @@ public class AccidentReport {
     private Location location;
     private String rawDescription;
 
-    //private List<AssetReference> assets;
     // NOW: Simply stores IDs. Ownership is managed by Asset Module.
     private List<String> assetIds;
 
-    //private Map<String, Object> contextData;
     private EnrichedContext contextData;
     private Map<String, Object> aiAnalysis;
 

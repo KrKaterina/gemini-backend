@@ -6,7 +6,5 @@ public record MediaMetadataView(
         String mimeType,
         long fileSize,
         String downloadUrl // Direct link to the binary stream
-
-       // String viewUrl
 ) {}
 

@@ -6,8 +6,7 @@ package com.platform.accident.submission.integration;
  * to fetch binary bytes for AI analysis.
  */
 public interface AiMediaClient {
-   //byte[] getAssetBytes(String assetId);
- //   AiAssetData getAssetData(String assetId);
+
    AiMediaResource getAssetResource(String assetId);
 
 }

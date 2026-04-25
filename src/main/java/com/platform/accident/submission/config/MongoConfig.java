@@ -14,7 +14,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class MongoConfig {
 
     @Bean
-    @Primary // <--- Αυτό λέει στο Spring "Χρησιμοποίησε εμένα, όχι το default"
+    @Primary
     public MongoDatabaseFactory mongoDbFactory() {
         return new SimpleMongoClientDatabaseFactory(
                 MongoClients.create("mongodb://localhost:27017"), "gemini-backend"

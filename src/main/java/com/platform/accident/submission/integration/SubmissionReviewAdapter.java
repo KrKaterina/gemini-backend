@@ -14,18 +14,6 @@ public class SubmissionReviewAdapter implements ReportViewerClient {
     private final AccidentRepository repository;
 
     @Override
-//    public Optional<AccidentSnapshotView> getRawData(String caseId) {
-//        return repository.findByCaseId(caseId).map(report -> new AccidentSnapshotView(
-//                report.getCaseId(),
-//                report.getRawDescription(),
-//                report.getReporterId(),
-//                report.getLocation().lat(),
-//                report.getLocation().lng(),
-//                report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A",
-//                report.getContextData() != null ? report.getContextData().roadType() : "N/A",
-//                report.getOccurrenceTime()
-//        ));
-//    }
     public Optional<AccidentSnapshotView> getRawData(String caseId) {
         return repository.findByCaseId(caseId).map(report -> {
 

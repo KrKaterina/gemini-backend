@@ -78,26 +78,6 @@ public class ReviewService {
     /**
      * Aggregator: Builds the dashboard DTO using type-safe records
      */
-    //it works - no authorization
-//    public CaseFileResponse getConsolidatedCaseFile(String caseId) {
-//        var review = reviewRepo.findByCaseId(caseId)
-//                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
-//
-//        var accident = viewerClient.getRawData(caseId)
-//                .orElseThrow(() -> new ResourceNotFoundException("Accident missing"));
-//
-//        var ai = aiClient.getAnalysisResult(caseId)
-//                .orElse(new AiAnalysisView("Incomplete", "LOW", List.of(), "N/A"));
-//
-//        return new CaseFileResponse(
-//                caseId,
-//                review.getStatus(),
-//                review.getAssignedAgentId(),
-//                accident,
-//                ai,
-//                review.getCorrections() // <--- Επιστρέφουμε τις διορθώσεις που κάναμε save στο Verify
-//        );
-//    }
     public CaseFileResponse getConsolidatedCaseFile(String caseId, IdentityContext agentCtx) {
         // AUTHORIZATION:
         verifyViewPermission(agentCtx, caseId);
@@ -193,33 +173,6 @@ public class ReviewService {
                 .build());
     }
 
-//    public ConsolidatedCaseFile getFullDashboardView(String caseId, IdentityContext agent) {
-//        if (!identityClient.hasPermission(agent.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
-//            throw new UnauthorizedException();
-//        }
-//
-//        // 1. Module 1: Get raw submission data
-//        var raw = reportViewer.getRawData(caseId).orElseThrow();
-//
-//        // 2. Module 3: Get Gemini AI insights
-//        var ai = aiInsight.getAnalysisResult(caseId).orElse(AiAnalysisView.empty());
-//
-//        // 3. Module 5: Get authenticated asset links for the UI player
-//        var evidence = mediaAssetClient.getAssetsByCase(caseId);
-//
-//        // 4. Local Review State
-//        var review = reviewRepo.findByCaseId(caseId).orElseThrow();
-//
-//        return new ConsolidatedCaseFile(
-//                caseId,
-//                review.getStatus().name(),
-//                raw,
-//                ai,
-//                evidence,
-//                review.getStatus().name(),
-//                review.getAssignedAgentId()
-//        );
-//    }
     public ConsolidatedCaseFile getFullDashboardView(String caseId, IdentityContext agent) {
         verifyViewPermission(agent, caseId);
 

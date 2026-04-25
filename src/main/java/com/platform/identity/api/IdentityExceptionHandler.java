@@ -14,15 +14,6 @@ import java.time.Instant;
 @RestControllerAdvice
 public class IdentityExceptionHandler {
 
-//    @ExceptionHandler(UserConflictException.class)
-//    public ProblemDetail handleUserConflict(UserConflictException ex) {
-//        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(com.platform.identity.exception.UnauthorizedException.class)
-//    public ProblemDetail handleUnauthorized(Exception ex) {
-//        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Access Denied");
-//    }
     @ExceptionHandler(UserConflictException.class)
     public ProblemDetail handleUserConflict(UserConflictException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());

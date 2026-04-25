@@ -2,7 +2,6 @@ package com.platform.accident.enrichment.client;
 
 import com.platform.accident.enrichment.client.dto.WeatherResponse;
 import com.platform.accident.enrichment.domain.WeatherMetrics;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -11,7 +10,6 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @Component

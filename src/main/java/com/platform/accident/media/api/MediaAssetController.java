@@ -28,23 +28,6 @@ public class MediaAssetController {
      * Entry point for mobile/web upload.
      * Happens BEFORE the accident report form is submitted.
      */
-  /*  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> upload(@RequestParam("file") MultipartFile file) throws Exception {
-//        String assetId = mediaService.uploadAsset(
-//                file.getInputStream(),
-//                file.getOriginalFilename(),
-//                file.getContentType()
-//        );
-//        return ResponseEntity.ok(Map.of("assetId", assetId));
-
-        return ResponseEntity.ok(mediaService.storePendingAsset(
-                file.getInputStream(),
-                file.getOriginalFilename(),
-                file.getContentType(),
-                file.getSize())
-        );
-    }*/
-
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> upload(
             @RequestParam("file") MultipartFile file,
@@ -65,14 +48,6 @@ public class MediaAssetController {
     }
 
     @GetMapping("/{assetId}/stream")
-//    public ResponseEntity<InputStreamResource> download(@PathVariable String assetId) throws Exception {
-//        var assetMetadata = mediaService.getInternalMetadata(assetId);
-//        var resource = mediaService.streamAssetContent(assetId);
-//
-//        return ResponseEntity.ok()
-//                .contentType(MediaType.parseMediaType(assetMetadata.getMimeType()))
-//                .body(resource);
-//    }
     public ResponseEntity<InputStreamResource> download(
             @PathVariable String assetId,
             HttpServletRequest httpRequest) throws Exception {
