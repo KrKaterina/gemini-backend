@@ -19,4 +19,8 @@ public interface ReviewCaseRepository extends MongoRepository<ReviewCase, String
 
     List<ReviewCase> findByStatus(ReviewStatus status);
     List<ReviewCase> findByAssignedAgentIdAndStatus(String agentId, ReviewStatus status);
+
+    long countByStatus(ReviewStatus status);
+
+    long countByAssignedAgentIdAndStatus(String agentId, ReviewStatus status);
 }

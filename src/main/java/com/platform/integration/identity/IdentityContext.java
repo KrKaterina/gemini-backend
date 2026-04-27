@@ -9,6 +9,7 @@ import java.util.List;
 public record IdentityContext(
         String userId,
         String username,
+        List<String> roles,
         List<String> permissions,
         String externalReference,
         boolean isAuthenticated

@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface AccidentRepository extends MongoRepository<AccidentReport, String> {
     Optional<AccidentReport> findByCaseId(String caseId);
     List<AccidentReport> findByReporterId(String reporterId);
+    long countByReporterId(String reporterId);
 }

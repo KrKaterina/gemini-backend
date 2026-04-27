@@ -1,5 +1,12 @@
 package com.platform.identity.domain;
 
+import com.platform.identity.api.dto.DashboardResponse;
+import com.platform.integration.identity.IdentityContext;
+import com.platform.integration.identity.SecurityContext;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -18,5 +25,9 @@ public class PermissionRegistry {
     public static boolean hasPermission(Set<String> userRoles, String permission) {
         return userRoles.stream()
                 .anyMatch(role -> ROLE_PERMISSIONS.getOrDefault(role, Set.of()).contains(permission));
+    }
+
+    public static Set<String> getPermissionsForRole(String role) {
+        return ROLE_PERMISSIONS.getOrDefault(role, Set.of());
     }
 }

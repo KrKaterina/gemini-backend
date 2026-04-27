@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -27,10 +28,24 @@ public class IdentityClientAdapter implements IdentityClient {
             String userId = claims.getSubject();
             return userRepository.findById(userId)
                     .filter(u -> u.getStatus() == UserStatus.ACTIVE)
-                    .map(u -> new IdentityContext(
-                            u.getUserId(), u.getUsername(), u.getRoles().stream().toList(),
-                            u.getExternalReference(), true
-                    ));
+                    .map(u -> {
+                        // FIX: Derive the permissions list from the roles
+                        // before instantiating the 6-argument Record
+                        var rolesList = List.copyOf(u.getRoles());
+                        var permissionsList = u.getRoles().stream()
+                                .flatMap(role -> PermissionRegistry.getPermissionsForRole(role).stream())
+                                .distinct()
+                                .toList();
+
+                        return new IdentityContext(
+                                u.getUserId(),
+                                u.getUsername(),
+                                rolesList,          // Param 3: List<String> roles
+                                permissionsList,    // Param 4: List<String> permissions
+                                u.getExternalReference(), // Param 5: String
+                                true                // Param 6: boolean (isActive)
+                        );
+                    });
         });
     }
 

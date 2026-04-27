@@ -1,8 +1,12 @@
 package com.platform.identity.api;
 
+import com.platform.identity.api.dto.DashboardResponse;
 import com.platform.identity.api.dto.RegistrationRequest;
 import com.platform.identity.repository.UserAccountRepository;
+import com.platform.identity.service.DashboardService;
 import com.platform.identity.service.IdentityManagementService;
+import com.platform.integration.identity.IdentityContext;
+import com.platform.integration.identity.SecurityContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +23,8 @@ public class AuthController {
     private final IdentityManagementService identityService;
 
     private final UserAccountRepository userRepository;
+
+    private final DashboardService dashboardService;
 
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest req) {
@@ -51,5 +57,14 @@ public class AuthController {
                     ));
                 })
                 .orElse(ResponseEntity.status(401).build());
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<DashboardResponse> getDashboard(HttpServletRequest request) {
+        // IDENTITY DERIVATION: Trusted identity derived from Token Context
+        IdentityContext ctx = SecurityContext.getRequired(request);
+
+        DashboardResponse dashboard = dashboardService.generateDashboard(ctx);
+        return ResponseEntity.ok(dashboard);
     }
 }

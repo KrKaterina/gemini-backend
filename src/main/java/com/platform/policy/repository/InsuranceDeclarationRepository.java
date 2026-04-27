@@ -29,4 +29,6 @@ public interface InsuranceDeclarationRepository extends MongoRepository<Insuranc
      * Essential for Eligibility Port checks during the Accident Submission process.
      */
     Optional<InsuranceDeclaration> findFirstByUserIdAndStatus(String userId, DeclarationStatus status);
+
+    Optional<InsuranceDeclaration> findFirstByUserId(String userId);
 }
