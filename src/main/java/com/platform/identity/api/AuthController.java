@@ -67,4 +67,6 @@ public class AuthController {
         DashboardResponse dashboard = dashboardService.generateDashboard(ctx);
         return ResponseEntity.ok(dashboard);
     }
+
+
 }

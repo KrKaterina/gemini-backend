@@ -58,5 +58,14 @@ public class PolicyController {
         IdentityContext agentCtx = SecurityContext.getRequired(httpRequest);
         return ResponseEntity.ok(policyService.getPendingPolicies(agentCtx.userId()));
     }
+
+    @GetMapping("/my")
+    public ResponseEntity<InsuranceDeclaration> getMyPolicy(HttpServletRequest httpRequest) {
+        IdentityContext identity = SecurityContext.getRequired(httpRequest);
+        // Κάλεσε το service αντί για το repository απευθείας
+        return policyService.getUserPolicy(identity.userId())
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
 

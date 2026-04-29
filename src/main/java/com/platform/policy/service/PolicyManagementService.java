@@ -125,4 +125,8 @@ public class PolicyManagementService implements PolicyPort {
             // Εδώ μπαίνει η WebClient υλοποίηση
         });
     }
+
+    public Optional<InsuranceDeclaration> getUserPolicy(String userId) {
+        return repository.findFirstByUserId(userId);
+    }
 }

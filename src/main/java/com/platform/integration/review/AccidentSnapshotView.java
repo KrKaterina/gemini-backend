@@ -13,5 +13,6 @@ public record AccidentSnapshotView(
         double lng,
         String weather,
         String roadType,
-        Instant occurrenceTime
+        Instant occurrenceTime,
+        java.util.List<String> assetIds
 ) {}

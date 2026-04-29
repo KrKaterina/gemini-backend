@@ -34,7 +34,8 @@ public class SubmissionReviewAdapter implements ReportViewerClient {
                     report.getLocation().lng(),
                     report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A",
                     report.getContextData() != null ? report.getContextData().roadType() : "N/A",
-                    report.getOccurrenceTime()
+                    report.getOccurrenceTime(),
+                    report.getAssetIds()
             );
         });
     }

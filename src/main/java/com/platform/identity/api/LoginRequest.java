@@ -1,5 +1,7 @@
 package com.platform.identity.api;
 
-public record LoginRequest(String username, String password) {
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record LoginRequest(@JsonProperty("email") String username, String password) {
 
 }
