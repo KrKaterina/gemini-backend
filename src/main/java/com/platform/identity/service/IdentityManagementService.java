@@ -102,9 +102,12 @@ public class IdentityManagementService {
     public List<UserDashboardProfile> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(u -> {
-                    String fullName = (u.getProfile() != null)
-                            ? u.getProfile().getFirstName() + " " + u.getProfile().getLastName()
-                            : u.getUsername(); // Fallback στο email αν δεν υπάρχει όνομα
+                    String displayName;
+                    if (u.getProfile() != null && u.getProfile().getFirstName() != null) {
+                        displayName = u.getProfile().getFirstName() + " " + u.getProfile().getLastName();
+                    } else {
+                        displayName = u.getUsername();
+                    }
 
                     var permissions = u.getRoles().stream()
                             .flatMap(role -> PermissionRegistry.getPermissionsForRole(role).stream())
@@ -116,7 +119,7 @@ public class IdentityManagementService {
                             u.getUsername(),
                             u.getRoles(),
                             permissions,
-                            fullName
+                            displayName
                     );
                 })
                 .toList();
