@@ -49,7 +49,7 @@ public class PolicyController {
 
         IdentityContext agentCtx = SecurityContext.getRequired(httpRequest);
 
-        policyService.verifyAndCorrectPolicy(id, req.verifiedExpiry(), agentCtx.userId());
+        policyService.verifyAndCorrectPolicy(id, req.verifiedExpiry(), req.status(), agentCtx.userId());
         return ResponseEntity.ok().build();
     }
 

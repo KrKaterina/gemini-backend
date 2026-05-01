@@ -83,7 +83,7 @@ public class PolicyManagementService implements PolicyPort {
      * Η βασική logic για την επικύρωση από Agent (Gatekeeper).
      */
     @Transactional
-    public void verifyAndCorrectPolicy(String id, Instant correctedExpiry, String agentId) {
+    public void verifyAndCorrectPolicy(String id, Instant correctedExpiry, String status,String agentId) {
         if (!identityClient.hasPermission(agentId, "POLICY_VERIFY")) {
             throw new UnauthorizedPolicyAccessException("Missing permission POLICY_VERIFY");
         }
@@ -94,14 +94,25 @@ public class PolicyManagementService implements PolicyPort {
         String auditDetail = String.format("Agent %s corrected expiry from %s to %s",
                 agentId, decl.getReportedExpirationDate(), correctedExpiry);
 
-        decl.setVerifiedExpirationDate(correctedExpiry);
+        if ("REJECTED".equals(status)) {
+            decl.setStatus(DeclarationStatus.REJECTED);
+            decl.setVerifiedExpirationDate(null);
+            log.info("Policy {} rejected by agent {}", id, agentId);
+        } else {
+            decl.setVerifiedExpirationDate(correctedExpiry);
+            decl.setStatus(DeclarationStatus.ACTIVE);
+            log.info("Policy {} verified as ACTIVE by agent {}", id, agentId);
+
+        }
+
         decl.setVerifiedByAgentId(agentId);
         decl.setVerifiedAt(Instant.now());
-        decl.setStatus(DeclarationStatus.ACTIVE);
-
         repository.save(decl);
+
         identityClient.logSecurityEvent(agentId, "POLICY_VERIFIED_AND_CORRECTED", auditDetail);
     }
+
+
 
     /**
      * Discovery logic για το Agent Dashboard.
@@ -127,6 +138,6 @@ public class PolicyManagementService implements PolicyPort {
     }
 
     public Optional<InsuranceDeclaration> getUserPolicy(String userId) {
-        return repository.findFirstByUserId(userId);
+        return repository.findFirstByUserIdOrderByCreatedAtDesc(userId);
     }
 }

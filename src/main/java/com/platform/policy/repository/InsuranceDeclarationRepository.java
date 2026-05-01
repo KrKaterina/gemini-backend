@@ -31,4 +31,7 @@ public interface InsuranceDeclarationRepository extends MongoRepository<Insuranc
     Optional<InsuranceDeclaration> findFirstByUserIdAndStatus(String userId, DeclarationStatus status);
 
     Optional<InsuranceDeclaration> findFirstByUserId(String userId);
+
+    Optional<InsuranceDeclaration> findFirstByUserIdOrderByCreatedAtDesc(String userId);
+
 }

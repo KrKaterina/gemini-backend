@@ -52,8 +52,13 @@ public class AuthController {
                             ? u.getProfile().getFirstName() + " " + u.getProfile().getLastName()
                             : "Unknown User";
 
+                    var userPermissions = u.getRoles().stream()
+                            .flatMap(role -> com.platform.identity.domain.PermissionRegistry.getPermissionsForRole(role).stream())
+                            .distinct()
+                            .toList();
+
                     return ResponseEntity.ok(new UserDashboardProfile(
-                            u.getUserId(), u.getUsername(), u.getRoles(), fullName
+                            u.getUserId(), u.getUsername(), u.getRoles(),userPermissions, fullName
                     ));
                 })
                 .orElse(ResponseEntity.status(401).build());

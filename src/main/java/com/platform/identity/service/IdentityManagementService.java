@@ -1,5 +1,6 @@
 package com.platform.identity.service;
 
+import com.platform.identity.api.UserDashboardProfile;
 import com.platform.identity.api.dto.RegistrationRequest;
 import com.platform.identity.domain.*;
 import com.platform.identity.exception.AccountLockedException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -79,7 +81,7 @@ public class IdentityManagementService {
     public void registerUser(RegistrationRequest req, Set<String> roles) {
         if (userRepository.existsByUsername(req.username())) {
             //throw new RuntimeException("Username already exists");
-            throw new UserConflictException("Username exists");
+            throw new UserConflictException("Email address exists");
         }
 
         UserAccount account = UserAccount.builder()
@@ -88,11 +90,35 @@ public class IdentityManagementService {
                 .passwordHash(passwordEncoder.encode(req.password()))
                 .roles(roles)
                 .status(UserStatus.ACTIVE)
+                .profile(new UserAccount.UserProfile(req.firstName(), req.lastName()))
                 .externalReference(req.externalReference())
                 .createdAt(Instant.now())
                 .build();
 
         userRepository.save(account);
         identityClient.logSecurityEvent(account.getUserId(), "USER_REGISTERED", "Roles assigned: " + roles);
+    }
+
+    public List<UserDashboardProfile> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(u -> {
+                    String fullName = (u.getProfile() != null)
+                            ? u.getProfile().getFirstName() + " " + u.getProfile().getLastName()
+                            : u.getUsername(); // Fallback στο email αν δεν υπάρχει όνομα
+
+                    var permissions = u.getRoles().stream()
+                            .flatMap(role -> PermissionRegistry.getPermissionsForRole(role).stream())
+                            .distinct()
+                            .toList();
+
+                    return new UserDashboardProfile(
+                            u.getUserId(),
+                            u.getUsername(),
+                            u.getRoles(),
+                            permissions,
+                            fullName
+                    );
+                })
+                .toList();
     }
 }
