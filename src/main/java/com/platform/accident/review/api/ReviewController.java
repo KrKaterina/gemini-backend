@@ -10,6 +10,7 @@ import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.identity.SecurityContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -80,5 +81,21 @@ public class ReviewController {
     public ResponseEntity<List<ReviewQueueItem>> getMyWorkspace(HttpServletRequest request) {
         var ctx = SecurityContext.getRequired(request);
         return ResponseEntity.ok(queryService.getAgentDashboard(ReviewStatus.IN_PROGRESS, ctx.userId()));
+    }
+
+    @GetMapping("/audit-feed")
+    public ResponseEntity<List<ReviewQueueItem>> getAuditHistory(HttpServletRequest request) {
+        // IDENTITY DERIVATION
+        var ctx = SecurityContext.getRequired(request);
+
+        // ENFORCEMENT: Does the agent have the specific right to see total feed?
+        // (Assuming "SYSTEM_AUDIT_VIEW" is registered in Module 6)
+        if (!identityClient.hasPermission(ctx.userId(), "SYSTEM_AUDIT_VIEW")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Logic uses context to differentiate between self-locks and other locks
+        List<ReviewQueueItem> feed = queryService.getTotalVisibilityFeed(ctx.userId());
+        return ResponseEntity.ok(feed);
     }
 }

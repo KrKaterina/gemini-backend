@@ -5,5 +5,6 @@ public record ReviewQueueItem(
         String reporterName,
         String severity,   // Derived from AI analysis result
         String status,     // PENDING vs IN_PROGRESS
-        long minutesOpen   // Calculated from creation time
+        long minutesOpen,   // Calculated from creation time
+        String assignedAgentId
 ) {}
