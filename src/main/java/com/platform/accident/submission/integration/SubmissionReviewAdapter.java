@@ -3,7 +3,6 @@ package com.platform.accident.submission.integration;
 import com.platform.accident.submission.repository.AccidentRepository;
 import com.platform.accident.review.integration.ReportViewerClient;
 import com.platform.integration.review.AccidentSnapshotView;
-import com.platform.integration.review.AiAnalysisView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import java.util.Optional;
@@ -11,32 +10,13 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class SubmissionReviewAdapter implements ReportViewerClient {
+
     private final AccidentRepository repository;
+    private final AccidentSnapshotMapper mapper; // Inject ο Mapper
 
     @Override
     public Optional<AccidentSnapshotView> getRawData(String caseId) {
-        return repository.findByCaseId(caseId).map(report -> {
-
-            // Μετατρέπουμε το Map της βάσης πίσω σε AiAnalysisView Record
-            var ai = report.getAiAnalysis();
-            AiAnalysisView aiView = (ai != null) ? new AiAnalysisView(
-                    (String) ai.get("summary"),
-                    (String) ai.get("severityLevel"),
-                    (java.util.List<String>) ai.get("suggestedNextSteps"),
-                    (String) ai.get("detailedReasoning")
-            ) : null;
-
-            return new AccidentSnapshotView(
-                    report.getCaseId(),
-                    report.getRawDescription(),
-                    report.getReporterId(),
-                    report.getLocation().lat(),
-                    report.getLocation().lng(),
-                    report.getContextData() != null ? report.getContextData().weatherCondition() : "N/A",
-                    report.getContextData() != null ? report.getContextData().roadType() : "N/A",
-                    report.getOccurrenceTime(),
-                    report.getAssetIds()
-            );
-        });
+        return repository.findByCaseId(caseId)
+                .map(mapper::mapToView); // Μια γραμμή, μηδενικό noise
     }
 }

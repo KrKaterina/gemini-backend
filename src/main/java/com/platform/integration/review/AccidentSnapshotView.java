@@ -1,6 +1,7 @@
 package com.platform.integration.review;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Data Snapshot from Module 1 (Submission) for the Human Agent dashboard.
@@ -14,5 +15,8 @@ public record AccidentSnapshotView(
         String weather,
         String roadType,
         Instant occurrenceTime,
-        java.util.List<String> assetIds
+        List<String> assetIds,
+        Double temperature,
+        String address,
+        Integer speedLimit
 ) {}

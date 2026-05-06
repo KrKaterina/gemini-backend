@@ -77,34 +77,26 @@ public class SubmissionService {
 
     private void triggerBackgroundProcesses(String caseId, Location loc, String traceUserId) {
         CompletableFuture.runAsync(() -> {
-            // Log start of automated chain using the captured trace ID
             identityClient.logSecurityEvent(traceUserId, "AUTOMATED_PROCESSING_START", caseId);
 
             try {
-                // Immediately update status to show work in progress
                 updateReportStatus(caseId, AccidentStatus.ENRICHING);
 
-                // Interface returns neutral EnrichmentResponse (No illegal casts to enrichment.domain)
                 EnrichmentResponse response = contextClient.enrichAccidentContext(caseId, loc);
 
-                // Atomic retrieval and update for enrichment data
                 repository.findByCaseId(caseId).ifPresent(report -> {
 
-                    EnrichedContext context = EnrichedContext.builder()
-                            .weatherCondition(response.weatherCondition())
-                            .temperatureCelsius(response.temperature())
-                            .roadType(response.roadType())
-                            .neighborhood(response.streetName())
-                            .daylight(true) // Derived or hardcoded for now
-                            .build();
+
+                    Integer parsedSpeed = parseSpeed(response.speedLimit());
+
+                    EnrichedContext context = EnrichedContext.fromResponse(response, parsedSpeed);
 
                     report.setContextData(context);
-                    report.setStatus(AccidentStatus.ANALYZING); // Proceed to AI state
+                    report.setStatus(AccidentStatus.ANALYZING);
                     repository.save(report);
 
                     log.info("Accident report {} successfully enriched and moved to AI analysis.", caseId);
 
-                    // Trigger subsequent AI module
                     intelligenceClient.processAiAnalysis(caseId, traceUserId);
                 });
 
@@ -112,6 +104,17 @@ public class SubmissionService {
                 log.error("Critical failure in background workflow for case {}: {}", caseId, e.getMessage());
             }
         });
+    }
+
+
+    private Integer parseSpeed(String speed) {
+        if (speed == null || speed.isBlank()) return 50;
+        try {
+            String sanitized = speed.replaceAll("[^0-9]", "");
+            return sanitized.isEmpty() ? 50 : Integer.parseInt(sanitized);
+        } catch (Exception e) {
+            return 50;
+        }
     }
 
     private void updateReportStatus(String caseId, AccidentStatus status) {

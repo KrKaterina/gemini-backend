@@ -1,5 +1,6 @@
 package com.platform.accident.intelligence.service;
 
+import com.platform.accident.enrichment.util.WeatherCodeMapper;
 import com.platform.accident.intelligence.client.factory.AiProviderFactory;
 import com.platform.accident.submission.integration.*;
 import com.platform.accident.intelligence.client.AiModelProvider;
@@ -43,15 +44,7 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
                     .orElseThrow(() -> new IllegalStateException("Source not found for " + caseId));
 
             // Use Component Names: sourceData.occurrenceTime() instead of getOccurrenceTime()
-            String expertPrompt = String.format(
-                    "Reconstruct accident at %s. Context: %s on %s. Neighborhood: %s. Daylight: %s. Description: %s",
-                    sourceData.occurrenceTime(), // 8
-                    sourceData.weatherCondition(), // 2
-                    sourceData.roadType(), // 3
-                    sourceData.neighborhood(), // 4
-                    sourceData.isDaylight() ? "Yes" : "No", // 5
-                    sourceData.rawDescription() // 1
-            );
+            String expertPrompt = constructConsolidatedPrompt(sourceData);
 
             AiModelProvider model = providerFactory.getProvider(providerName);
 
@@ -77,15 +70,19 @@ public class IntelligenceOrchestrator implements IntelligenceOrchestrationClient
         // Φτιάχνουμε ΑΥΤΟΜΑΤΑ το string
         String time = (data.occurrenceTime() != null) ? data.occurrenceTime().toString() : "Unknown Date";
 
+        String weatherDescription = WeatherCodeMapper.translate(data.weatherCondition());
+
         return String.format(
-                "Incident occurred on %s. Weather: %s. Road Type: %s. " +
-                        "Location: Lat %.4f, Lng %.4f. Description provided: %s. " +
-                        "Please analyze this along with the attached media.",
-                time,
-                data.weatherCondition(),
+                "Please perform a professional forensic reconstruction of an accident occurred at %s. " +
+                        "Environmental context: %s weather on a %s road in the %s area. " +
+                        "Time of day context: %s. " +
+                        "User reported narrative: '%s'. " +
+                        "Analyze this input alongside the attached multimodal evidence.",
+                data.occurrenceTime(),
+                weatherDescription,
                 data.roadType(),
-                data.lat(),
-                data.lng(),
+                data.neighborhood(),
+                data.isDaylight() ? "Daylight (Good visibility)" : "Night/Low light",
                 data.rawDescription()
         );
     }

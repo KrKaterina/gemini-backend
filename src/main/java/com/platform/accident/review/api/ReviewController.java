@@ -50,7 +50,6 @@ public class ReviewController {
         return ResponseEntity.accepted().build();
     }
 
-
     @PostMapping("/{caseId}/verify")
     public ResponseEntity<Void> verify(
             @PathVariable String caseId,
@@ -80,7 +79,7 @@ public class ReviewController {
     @GetMapping("/my-workspace")
     public ResponseEntity<List<ReviewQueueItem>> getMyWorkspace(HttpServletRequest request) {
         var ctx = SecurityContext.getRequired(request);
-        return ResponseEntity.ok(queryService.getAgentDashboard(ReviewStatus.IN_PROGRESS, ctx.userId()));
+        return ResponseEntity.ok(queryService.getAgentDashboard(ReviewStatus.IN_PROGRESS, null));
     }
 
     @GetMapping("/audit-feed")
@@ -90,12 +89,12 @@ public class ReviewController {
 
         // ENFORCEMENT: Does the agent have the specific right to see total feed?
         // (Assuming "SYSTEM_AUDIT_VIEW" is registered in Module 6)
-        if (!identityClient.hasPermission(ctx.userId(), "SYSTEM_AUDIT_VIEW")) {
+        if (!identityClient.hasPermission(ctx.userId(), "ACCIDENT_REPORT_VIEW_ALL")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         // Logic uses context to differentiate between self-locks and other locks
-        List<ReviewQueueItem> feed = queryService.getTotalVisibilityFeed(ctx.userId());
+        List<ReviewQueueItem> feed = queryService.getVerfiedReports(ctx.userId());
         return ResponseEntity.ok(feed);
     }
 }
