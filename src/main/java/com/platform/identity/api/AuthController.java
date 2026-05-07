@@ -58,7 +58,7 @@ public class AuthController {
                             .toList();
 
                     return ResponseEntity.ok(new UserDashboardProfile(
-                            u.getUserId(), u.getUsername(), u.getRoles(),userPermissions, fullName
+                            u.getUserId(), u.getUsername(), u.getRoles(),userPermissions, fullName,u.getStatus()
                     ));
                 })
                 .orElse(ResponseEntity.status(401).build());

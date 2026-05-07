@@ -1,5 +1,6 @@
 package com.platform.identity.service;
 
+import com.platform.accident.review.exception.ResourceNotFoundException;
 import com.platform.identity.api.UserDashboardProfile;
 import com.platform.identity.api.dto.RegistrationRequest;
 import com.platform.identity.domain.*;
@@ -99,6 +100,47 @@ public class IdentityManagementService {
         identityClient.logSecurityEvent(account.getUserId(), "USER_REGISTERED", "Roles assigned: " + roles);
     }
 
+    @Transactional
+    public void updateUserStatus(String targetUserId, UserStatus newStatus, String adminId) {
+        UserAccount target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + targetUserId));
+
+        // Business Rule: Admins should not be able to disable themselves
+        // to prevent accidental total system lockout.
+        if (targetUserId.equals(adminId)) {
+            throw new IllegalStateException("Administrative self-lockout is prohibited.");
+        }
+
+        UserStatus oldStatus = target.getStatus();
+        target.setStatus(newStatus);
+
+        // If we disable/lock the user, clear failed attempts so they get a fresh start if re-enabled
+        if (newStatus == UserStatus.LOCKED) {
+            target.setFailedAttempts(0);
+        }
+
+        userRepository.save(target);
+
+        identityClient.logSecurityEvent(adminId, "ADMIN_STATUS_OVERRIDE",
+                String.format("User %s status changed from %s to %s", targetUserId, oldStatus, newStatus));
+    }
+
+    /**
+     * Permanently removes the user record from the database.
+     */
+    @Transactional
+    public void deleteUserAccount(String targetUserId, String adminId) {
+        if (!userRepository.existsById(targetUserId)) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        userRepository.deleteById(targetUserId);
+
+        // Security Log: Ensure the action is traceable even after the user record is gone
+        identityClient.logSecurityEvent(adminId, "USER_DELETED_PERMANENTLY", "Target User ID: " + targetUserId);
+    }
+
+
     public List<UserDashboardProfile> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(u -> {
@@ -119,7 +161,8 @@ public class IdentityManagementService {
                             u.getUsername(),
                             u.getRoles(),
                             permissions,
-                            displayName
+                            displayName,
+                            u.getStatus()
                     );
                 })
                 .toList();
