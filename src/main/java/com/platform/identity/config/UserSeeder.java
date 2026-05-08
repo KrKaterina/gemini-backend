@@ -36,6 +36,15 @@ public class UserSeeder implements CommandLineRunner {
                     .status(UserStatus.ACTIVE)
                     .externalReference("EMP-001")
                     .build());
+
+            userRepository.save(UserAccount.builder()
+                    .userId("admin-001")
+                    .username("admin@test.com")
+                    .passwordHash(passwordEncoder.encode("password"))
+                    .roles(Set.of("ROLE_ADMIN"))
+                    .status(UserStatus.ACTIVE)
+                    .externalReference("ADM-001")
+                    .build());
             System.out.println(">>> SEED DATA CREATED: Users created successfully.");
         } else {
             System.out.println(">>> SEED SKIP: Database already contains users. Count: " + userRepository.count());
