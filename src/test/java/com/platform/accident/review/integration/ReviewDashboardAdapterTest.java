@@ -27,7 +27,7 @@ class ReviewDashboardAdapterTest {
 
     @BeforeEach
     void setUp() {
-        
+
     }
 
     @Test

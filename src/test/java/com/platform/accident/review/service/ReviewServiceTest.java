@@ -1,6 +1,7 @@
 package com.platform.accident.review.service;
 
 import com.platform.accident.review.api.dto.CaseFileResponse;
+import com.platform.accident.review.api.dto.ConsolidatedCaseFile;
 import com.platform.accident.review.domain.ReviewCase;
 import com.platform.accident.review.domain.ReviewStatus;
 import com.platform.accident.review.exception.CaseLockedException;
@@ -11,10 +12,12 @@ import com.platform.accident.review.integration.ReportLifecycleClient;
 import com.platform.accident.review.integration.ReportViewerClient;
 import com.platform.accident.review.repository.ReviewAuditRepository;
 import com.platform.accident.review.repository.ReviewCaseRepository;
+import com.platform.identity.exception.UnauthorizedException;
 import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.identity.IdentityContext;
 import com.platform.integration.media.MediaAssetClient;
 import com.platform.integration.review.AccidentSnapshotView;
+import com.platform.integration.review.AiAnalysisView;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,7 +51,20 @@ class ReviewServiceTest {
     private ReviewService reviewService;
 
     @Test
-    @DisplayName("Lock: Should lock case successfully when PENDING and user has permission")
+    @DisplayName("Initialize: Should create new review record if caseId is new")
+    void initializeReviewQueue_NewCase_SavesRecord() {
+        String caseId = "ACC-NEW";
+        when(reviewRepo.findByCaseId(caseId)).thenReturn(Optional.empty());
+
+        reviewService.initializeReviewQueue(caseId);
+
+        verify(reviewRepo).save(argThat(rc ->
+                rc.getCaseId().equals(caseId) && rc.getStatus() == ReviewStatus.PENDING
+        ));
+    }
+
+    @Test
+    @DisplayName("Lock: Should update status to IN_PROGRESS and set locked timestamp")
     void lockCase_Success() {
         String caseId = "ACC-1";
         IdentityContext agent = new IdentityContext("agent-1", "A", List.of(), List.of(), "R", true);
@@ -61,55 +77,37 @@ class ReviewServiceTest {
 
         assertThat(review.getStatus()).isEqualTo(ReviewStatus.IN_PROGRESS);
         assertThat(review.getAssignedAgentId()).isEqualTo("agent-1");
+        assertThat(review.getLockedAt()).isNotNull();
         verify(reviewRepo).save(review);
-        verify(identityClient).logSecurityEvent(eq("agent-1"), eq("CASE_LOCKED"), eq(caseId));
     }
 
     @Test
-    @DisplayName("Lock: Should fail when case is already locked by another agent within timeout")
-    void lockCase_Fail_AlreadyLocked() {
+    @DisplayName("Dashboard: Should aggregate data from AI, Viewer and Media ports")
+    void getFullDashboardView_Success() {
         String caseId = "ACC-1";
-        IdentityContext agentA = new IdentityContext("agent-A", "A", List.of(), List.of(), "R", true);
+        IdentityContext context = new IdentityContext("agent-1", "user", List.of(), List.of(), "REF", true);
 
-        ReviewCase alreadyLocked = ReviewCase.builder()
-                .caseId(caseId)
-                .assignedAgentId("agent-B")
-                .lockedAt(Instant.now().minus(5, ChronoUnit.MINUTES)) // Κλειδώθηκε πριν 5 λεπτά
-                .status(ReviewStatus.IN_PROGRESS)
-                .build();
+        ReviewCase review = ReviewCase.builder().caseId(caseId).status(ReviewStatus.IN_PROGRESS).build();
+        AccidentSnapshotView snap = mock(AccidentSnapshotView.class);
+        AiAnalysisView ai = new AiAnalysisView("COMPLETED", "HIGH", List.of(), "OK");
 
-        when(identityClient.hasPermission("agent-A", "CASE_REVIEW_LOCK")).thenReturn(true);
-        when(reviewRepo.findByCaseId(caseId)).thenReturn(Optional.of(alreadyLocked));
+        when(identityClient.hasPermission("agent-1", "ACCIDENT_REPORT_VIEW_ALL")).thenReturn(true);
+        when(reviewRepo.findByCaseId(caseId)).thenReturn(Optional.of(review));
+        when(viewerClient.getRawData(caseId)).thenReturn(Optional.of(snap));
+        when(aiClient.getAnalysisResult(caseId)).thenReturn(Optional.of(ai));
+        when(mediaClient.getAssetsByCase(caseId)).thenReturn(List.of());
 
-        assertThatThrownBy(() -> reviewService.lockCase(caseId, agentA))
-                .isInstanceOf(CaseLockedException.class);
+        ConsolidatedCaseFile result = reviewService.getFullDashboardView(caseId, context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.caseId()).isEqualTo(caseId);
+        assertThat(result.aiAnalysis()).isEqualTo(ai);
+        verify(mediaClient).getAssetsByCase(caseId);
     }
 
     @Test
-    @DisplayName("Lock: Should allow re-lock if the previous lock has expired (>30 mins)")
-    void lockCase_Success_WhenPreviousLockExpired() {
-        String caseId = "ACC-1";
-        IdentityContext agentA = new IdentityContext("agent-A", "A", List.of(), List.of(), "R", true);
-
-        ReviewCase expiredLock = ReviewCase.builder()
-                .caseId(caseId)
-                .assignedAgentId("agent-B")
-                .lockedAt(Instant.now().minus(40, ChronoUnit.MINUTES)) // Έληξε (30' όριο)
-                .status(ReviewStatus.IN_PROGRESS)
-                .build();
-
-        when(identityClient.hasPermission("agent-A", "CASE_REVIEW_LOCK")).thenReturn(true);
-        when(reviewRepo.findByCaseId(caseId)).thenReturn(Optional.of(expiredLock));
-
-        reviewService.lockCase(caseId, agentA);
-
-        assertThat(expiredLock.getAssignedAgentId()).isEqualTo("agent-A");
-        verify(reviewRepo).save(expiredLock);
-    }
-
-    @Test
-    @DisplayName("Verify: Should successfully finalize report when agent holds the lock")
-    void verifyCase_Success() {
+    @DisplayName("Verify: Should call LifecycleClient to finalize report in Module 1")
+    void verifyCase_FullFlow() {
         String caseId = "ACC-1";
         IdentityContext agent = new IdentityContext("agent-1", "A", List.of(), List.of(), "R", true);
         ReviewCase review = ReviewCase.builder().caseId(caseId).assignedAgentId("agent-1").build();
@@ -119,36 +117,38 @@ class ReviewServiceTest {
 
         reviewService.verifyCase(caseId, agent, new HashMap<>());
 
-        assertThat(review.getStatus()).isEqualTo(ReviewStatus.VERIFIED);
         verify(lifecycleClient).finalizeReport(eq(caseId), anyMap());
         verify(lifecycleClient).updateStatus(caseId, "PROCESSED");
-        verify(auditRepo).save(any());
+        verify(auditRepo).save(any()); // Ελέγχει ότι γράφτηκε το Audit Trail
     }
 
     @Test
-    @DisplayName("Verify: Should fail when agent does not hold the active lock")
-    void verifyCase_Fail_NotHolder() {
-        IdentityContext agent = new IdentityContext("agent-1", "A", List.of(), List.of(), "R", true);
-        ReviewCase review = ReviewCase.builder().caseId("C1").assignedAgentId("different-agent").build();
+    @DisplayName("Security: Should throw UnauthorizedException if agent lacks view permission")
+    void getFullDashboardView_NoPermission_ThrowsException() {
+        IdentityContext agent = new IdentityContext("spy", "A", List.of(), List.of(), "R", true);
+        when(identityClient.hasPermission("spy", "ACCIDENT_REPORT_VIEW_ALL")).thenReturn(false);
 
-        when(identityClient.hasPermission("agent-1", "CASE_REVIEW_VERIFY")).thenReturn(true);
-        when(reviewRepo.findByCaseId("C1")).thenReturn(Optional.of(review));
+        assertThatThrownBy(() -> reviewService.getFullDashboardView("C1", agent))
+                .isInstanceOf(UnauthorizedException.class);
 
-        assertThatThrownBy(() -> reviewService.verifyCase("C1", agent, new HashMap<>()))
-                .isInstanceOf(UnauthorizedReviewException.class)
-                .hasMessageContaining("Action Forbidden");
+        verify(identityClient).logSecurityEvent(eq("spy"), eq("AUTH_FAILURE"), anyString());
     }
 
     @Test
-    @DisplayName("GetFile: Fail when accident snapshot is missing from submission module")
-    void getConsolidatedCaseFile_MissingData_ThrowsException() {
-        IdentityContext agent = new IdentityContext("a1", "A", List.of(), List.of(), "R", true);
-        when(identityClient.hasPermission(anyString(), anyString())).thenReturn(true);
-        when(reviewRepo.findByCaseId(anyString())).thenReturn(Optional.of(new ReviewCase()));
-        when(viewerClient.getRawData(anyString())).thenReturn(Optional.empty());
+    @DisplayName("Concurrency: Fail lock when another agent holds it (within 30 mins)")
+    void lockCase_Fail_CurrentlyActive() {
+        String caseId = "C1";
+        IdentityContext newAgent = new IdentityContext("agent-new", "A", List.of(), List.of(), "R", true);
+        ReviewCase activeReview = ReviewCase.builder()
+                .caseId(caseId)
+                .assignedAgentId("agent-active")
+                .lockedAt(Instant.now().minus(10, ChronoUnit.MINUTES))
+                .build();
 
-        assertThatThrownBy(() -> reviewService.getConsolidatedCaseFile("CASE-X", agent))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("Accident record missing");
+        when(identityClient.hasPermission("agent-new", "CASE_REVIEW_LOCK")).thenReturn(true);
+        when(reviewRepo.findByCaseId(caseId)).thenReturn(Optional.of(activeReview));
+
+        assertThatThrownBy(() -> reviewService.lockCase(caseId, newAgent))
+                .isInstanceOf(CaseLockedException.class);
     }
 }

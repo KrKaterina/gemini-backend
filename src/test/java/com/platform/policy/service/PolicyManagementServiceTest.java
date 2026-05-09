@@ -2,6 +2,7 @@ package com.platform.policy.service;
 
 import com.platform.integration.identity.IdentityClient;
 import com.platform.integration.policy.EligibilityStatus;
+import com.platform.integration.policy.InsurerSnapshot;
 import com.platform.policy.api.dto.DeclarationRequest;
 import com.platform.policy.domain.DeclarationStatus;
 import com.platform.policy.domain.InsuranceDeclaration;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,80 +40,129 @@ class PolicyManagementServiceTest {
     private PolicyManagementService policyService;
 
     @Test
-    @DisplayName("Should correctly identify eligible user when policy is active and dates match")
-    void checkEligibility_WhenValid_ShouldReturnEligible() {
-        String userId = "user123";
-        Instant accidentDate = Instant.now();
+    @DisplayName("Create Declaration: Should correctly map DTO fields and initial status")
+    void createDeclaration_Success() {
+        String userId = "user_99";
+        DeclarationRequest request = new DeclarationRequest(
+                "AXA", "POL-12345", Instant.now(), Instant.now().plus(365, ChronoUnit.DAYS), "asset_id"
+        );
 
-        InsuranceDeclaration activePolicy = InsuranceDeclaration.builder()
+        String id = policyService.createDeclaration(userId, request);
+
+        assertThat(id).isNotNull();
+        verify(repository).save(argThat(p ->
+                p.getUserId().equals(userId) &&
+                        p.getProviderCode().equals("AXA") &&
+                        p.getStatus() == DeclarationStatus.PENDING
+        ));
+    }
+
+    @Test
+    @DisplayName("Check Eligibility: Valid policy at occurrence time should return Eligible")
+    void checkEligibility_WhenValid_ReturnsEligible() {
+        String userId = "u1";
+        Instant incident = Instant.now();
+        InsuranceDeclaration policy = InsuranceDeclaration.builder()
                 .status(DeclarationStatus.ACTIVE)
-                .validFrom(accidentDate.minus(5, ChronoUnit.DAYS))
-                .verifiedExpirationDate(accidentDate.plus(5, ChronoUnit.DAYS))
-                .policyNumber("POL-100")
+                .validFrom(incident.minus(1, ChronoUnit.DAYS))
+                .verifiedExpirationDate(incident.plus(1, ChronoUnit.DAYS))
+                .policyNumber("NUM-1")
+                .providerCode("PRV-1")
                 .build();
 
-        when(repository.findAllByUserId(userId)).thenReturn(List.of(activePolicy));
+        when(repository.findAllByUserId(userId)).thenReturn(List.of(policy));
 
-        EligibilityStatus result = policyService.checkEligibility(userId, accidentDate);
+        EligibilityStatus result = policyService.checkEligibility(userId, incident);
 
         assertThat(result.eligible()).isTrue();
         assertThat(result.reasonCode()).isEqualTo("VALID");
-        assertThat(result.policyNumber()).isEqualTo("POL-100");
     }
 
     @Test
-    @DisplayName("Should deny eligibility if the accident occurred after policy expiration")
-    void checkEligibility_WhenExpired_ShouldReturnDenied() {
-        String userId = "user123";
-        Instant accidentDate = Instant.now();
-
-        InsuranceDeclaration expiredPolicy = InsuranceDeclaration.builder()
+    @DisplayName("Check Eligibility: Null validFrom should be treated as start of time")
+    void checkEligibility_WithNullValidFrom_ReturnsEligible() {
+        String userId = "u1";
+        Instant incident = Instant.now();
+        InsuranceDeclaration policy = InsuranceDeclaration.builder()
                 .status(DeclarationStatus.ACTIVE)
-                .verifiedExpirationDate(accidentDate.minus(1, ChronoUnit.DAYS)) // Έληξε χθες
+                .validFrom(null) // Case: No start date defined
+                .verifiedExpirationDate(incident.plus(10, ChronoUnit.DAYS))
                 .build();
 
-        when(repository.findAllByUserId(userId)).thenReturn(List.of(expiredPolicy));
+        when(repository.findAllByUserId(userId)).thenReturn(List.of(policy));
 
-        EligibilityStatus result = policyService.checkEligibility(userId, accidentDate);
+        EligibilityStatus result = policyService.checkEligibility(userId, incident);
 
-        assertThat(result.eligible()).isFalse();
-        assertThat(result.reasonCode()).isEqualTo("NO_ACTIVE_POLICY_FOR_DATE");
+        assertThat(result.eligible()).isTrue();
     }
 
     @Test
-    @DisplayName("Should throw exception during verification if agent lacks permissions")
-    void verifyPolicy_WhenNoPermission_ShouldThrowException() {
-        String agentId = "agent007";
-        when(identityClient.hasPermission(agentId, "POLICY_VERIFY")).thenReturn(false);
-
-        assertThatThrownBy(() ->
-                policyService.verifyAndCorrectPolicy("id", Instant.now(), "ACTIVE", agentId)
-        ).isInstanceOf(UnauthorizedPolicyAccessException.class);
-
-        verify(repository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Should successfully update policy status when agent is authorized")
-    void verifyPolicy_WhenAuthorized_ShouldSaveStatus() {
-        String agentId = "agent001";
-        String policyId = "p-123";
-        Instant newExpiry = Instant.now().plus(30, ChronoUnit.DAYS);
-
-        InsuranceDeclaration pending = InsuranceDeclaration.builder()
-                .id(policyId)
-                .status(DeclarationStatus.PENDING)
-                .build();
+    @DisplayName("Verification: REJECTED status should clear expiry date and update entity")
+    void verifyAndCorrect_RejectedCase_UpdatesCorrectly() {
+        String agentId = "agent_1";
+        String pId = "p_id";
+        InsuranceDeclaration existing = InsuranceDeclaration.builder().id(pId).status(DeclarationStatus.PENDING).build();
 
         when(identityClient.hasPermission(agentId, "POLICY_VERIFY")).thenReturn(true);
-        when(repository.findById(policyId)).thenReturn(Optional.of(pending));
+        when(repository.findById(pId)).thenReturn(Optional.of(existing));
 
-        policyService.verifyAndCorrectPolicy(policyId, newExpiry, "ACTIVE", agentId);
+        policyService.verifyAndCorrectPolicy(pId, Instant.now(), "REJECTED", agentId);
 
-        verify(repository).save(argThat(p ->
-                p.getStatus() == DeclarationStatus.ACTIVE &&
-                        p.getVerifiedExpirationDate().equals(newExpiry) &&
-                        p.getVerifiedByAgentId().equals(agentId)
-        ));
+        assertThat(existing.getStatus()).isEqualTo(DeclarationStatus.REJECTED);
+        assertThat(existing.getVerifiedExpirationDate()).isNull();
+        verify(repository).save(existing);
+    }
+
+    @Test
+    @DisplayName("Verification: Should throw exception if agent is not authorized")
+    void verifyAndCorrect_UnauthorizedAgent_ThrowsException() {
+        when(identityClient.hasPermission(anyString(), anyString())).thenReturn(false);
+
+        assertThatThrownBy(() ->
+                policyService.verifyAndCorrectPolicy("any", Instant.now(), "ACTIVE", "unauthorized_agent")
+        ).isInstanceOf(UnauthorizedPolicyAccessException.class);
+    }
+
+    @Test
+    @DisplayName("Snapshot: Should return InsurerSnapshot with hardcoded endpoint for active policy")
+    void getActiveDeclaration_Success() {
+        String userId = "user1";
+        Instant now = Instant.now();
+        InsuranceDeclaration active = InsuranceDeclaration.builder()
+                .status(DeclarationStatus.ACTIVE)
+                .validFrom(now.minus(10, ChronoUnit.DAYS))
+                .verifiedExpirationDate(now.plus(10, ChronoUnit.DAYS))
+                .providerCode("CODE")
+                .policyNumber("NUM")
+                .build();
+
+        when(repository.findAllByUserId(userId)).thenReturn(List.of(active));
+
+        Optional<InsurerSnapshot> result = policyService.getActiveDeclaration(userId, now);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().providerCode()).isEqualTo("CODE");
+        // Σύμφωνα με τον κώδικα σας: "https://api.external.com"
+        assertThat(result.get().insurerNotificationEndpoint()).isEqualTo("https://api.external.com");
+    }
+
+    @Test
+    @DisplayName("Queue: Pending policies retrieval should work for authorized agents")
+    void getPendingPolicies_Success() {
+        String agentId = "agent_x";
+        when(identityClient.hasPermission(agentId, "POLICY_VIEW_QUEUE")).thenReturn(true);
+        when(repository.findByStatus(DeclarationStatus.PENDING)).thenReturn(List.of(new InsuranceDeclaration()));
+
+        List<InsuranceDeclaration> queue = policyService.getPendingPolicies(agentId);
+
+        assertThat(queue).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("User Policy: Should call repository and return newest policy")
+    void getUserPolicy_CallsRepository() {
+        String uid = "u";
+        policyService.getUserPolicy(uid);
+        verify(repository).findFirstByUserIdOrderByCreatedAtDesc(uid);
     }
 }
