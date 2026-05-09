@@ -92,4 +92,26 @@ class EnrichmentOrchestratorTest {
         assertThat(response.weatherCondition()).isEqualTo("UNKNOWN");
         assertThat(response.streetName()).isEqualTo("UNKNOWN");
     }
+
+    @Test
+    @DisplayName("FetchAndCache: Should execute catch block when database save fails during cache miss")
+    void fetchAndCache_InternalSaveFailure() {
+        Location loc = new Location(38.0, 23.0, "Athens");
+        when(cacheRepository.findByGeoHashAndReferenceTime(anyString(), any()))
+                .thenReturn(Optional.empty());
+
+        when(weatherAdapter.fetchWeatherAtTimestamp(anyDouble(), anyDouble(), any()))
+                .thenReturn(Mono.just(new WeatherMetrics("CLEAR", 20.0)));
+        when(roadAdapter.fetchRoadMetadata(anyDouble(), anyDouble()))
+                .thenReturn(Mono.just(new RoadGeometry("Road", "primary", "50")));
+
+        when(cacheRepository.save(any())).thenThrow(new RuntimeException("DB Connection Lost"));
+
+        EnrichmentResponse response = orchestrator.enrichAccidentContext("CASE-ERR", loc);
+
+        assertThat(response.contextUnavailable()).isTrue();
+        assertThat(response.weatherCondition()).isEqualTo("UNKNOWN");
+
+        verify(cacheRepository).save(any());
+    }
 }
