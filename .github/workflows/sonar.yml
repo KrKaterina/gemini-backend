@@ -33,4 +33,3 @@ jobs:
           -Dsonar.projectKey=KrKaterina_gemini-backend
           -Dsonar.organization=krkaterina
           -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.coverage.exclusions=**/dto/**,**/domain/**,**/config/**,**/exception/**,**/*Application.java,**/UserSeeder.java

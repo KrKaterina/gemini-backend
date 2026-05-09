@@ -18,6 +18,15 @@
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
+
+		<sonar.coverage.exclusions>
+			**/dto/**,
+			**/domain/**,
+			**/config/**,
+			**/exception/**,
+			**/*Application.java,
+			**/UserSeeder.java
+		</sonar.coverage.exclusions>
 	</properties>
 
 	<dependencies>
