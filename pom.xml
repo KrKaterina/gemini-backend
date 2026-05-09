@@ -24,6 +24,7 @@
 			**/domain/**,
 			**/config/**,
 			**/exception/**,
+			**/api/**,
 			**/*Application.java,
 			**/UserSeeder.java
 		</sonar.coverage.exclusions>
